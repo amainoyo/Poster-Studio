@@ -11,8 +11,8 @@ The client artifact inlines the following web fonts from the official
 DeepSeek Harness page (www.deepseek.com/harness), so the poster renders
 offline and inside the Harness Web UI.
 
-  DM Sans — weights 400, 500, 700
-    assets/dm-sans-400.woff2, assets/dm-sans-500.woff2, assets/dm-sans-700.woff2
+  DM Sans — variable, weights 100–900, roman and italic
+    assets/dm-sans-var.woff2, assets/dm-sans-var-italic.woff2
     Copyright 2018 The DM Sans Project Authors
     Licensed under the SIL Open Font License, Version 1.1
     https://openfontlicense.org

@@ -214,6 +214,10 @@ void main(){
         saved: 'Saved',
         clearLibrary: 'Clear library',
         libraryCleared: 'Export library cleared',
+        weight: 'Weight',
+        letterSpacing: 'Spacing',
+        lineHeight: 'Height',
+        opacity: 'Opacity',
         studioFloatHint: 'The poster studio opens as a floating window.',
         close: 'Close',
         export: 'Export PNG',
@@ -247,6 +251,10 @@ void main(){
         saved: '已保存',
         clearLibrary: '清空图库',
         libraryCleared: '图库已清空',
+        weight: '字重',
+        letterSpacing: '字距',
+        lineHeight: '行高',
+        opacity: '透明度',
         studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
@@ -284,12 +292,12 @@ void main(){
     /**
      * Normalise one colour value.
      * @param {unknown} value - candidate colour.
-     * @returns {string | undefined} a #rrggbb colour, when the value is one.
+     * @returns {string | undefined} a #rrggbb or #rrggbbaa colour, when the value is one.
      */
     function normalizeColor(value) {
       if (typeof value !== 'string') return undefined;
       const trimmed = value.trim();
-      return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed.toLowerCase() : undefined;
+      return /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(trimmed) ? trimmed.toLowerCase() : undefined;
     }
 
     /**
@@ -1610,6 +1618,60 @@ void main(){
             scale: 100,
             precision: 0,
             onChange: (value) => patchLayer(layer.id, { y: value }),
+          }),
+        ]),
+        h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 10 } }, [
+          h('label', {
+            key: 'weightWrap',
+            style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' },
+          }, [
+            h('span', { key: 'label' }, store.translate('weight')),
+            h('select', {
+              key: 'select',
+              value: String(layer.weight),
+              onChange: (event) => patchLayer(layer.id, { weight: Number(event.target.value) }),
+              style: { width: 58, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+            }, [300, 400, 500, 600, 700].map((weight) => h('option', { key: weight, value: weight }, String(weight)))),
+          ]),
+          h(Stepper, {
+            key: 'spacing',
+            label: store.translate('letterSpacing'),
+            stretch: true,
+            value: layer.letterSpacing,
+            min: -10,
+            max: 40,
+            step: 0.5,
+            precision: 1,
+            onChange: (value) => patchLayer(layer.id, { letterSpacing: value }),
+          }),
+        ]),
+        h('div', { key: 'rowFlow', style: { display: 'flex', gap: 10 } }, [
+          h(Stepper, {
+            key: 'lineHeight',
+            label: store.translate('lineHeight'),
+            stretch: true,
+            value: layer.lineHeight,
+            min: 0.8,
+            max: 3,
+            step: 0.05,
+            precision: 2,
+            onChange: (value) => patchLayer(layer.id, { lineHeight: value }),
+          }),
+          h(Stepper, {
+            key: 'opacity',
+            label: store.translate('opacity'),
+            stretch: true,
+            value: layer.color.length === 9 ? parseInt(layer.color.slice(7, 9), 16) / 255 : 1,
+            min: 0.05,
+            max: 1,
+            step: 0.05,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, {
+              color: value >= 1
+                ? layer.color.slice(0, 7)
+                : layer.color.slice(0, 7) + Math.round(value * 255).toString(16).padStart(2, '0'),
+            }),
           }),
         ]),
       ]));

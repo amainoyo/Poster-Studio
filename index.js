@@ -153,7 +153,7 @@ function normalizeLayer(value, fallback) {
     align,
     x: clamp(source.x, 0, 1, fallback.x),
     y: clamp(source.y, 0, 1, fallback.y),
-    color: typeof source.color === 'string' && /^#[0-9a-f]{6}$/i.test(source.color)
+    color: typeof source.color === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(source.color)
       ? source.color.toLowerCase()
       : fallback.color,
     lineHeight: clamp(source.lineHeight, 0.8, 3, fallback.lineHeight),

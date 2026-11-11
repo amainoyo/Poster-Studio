@@ -12,16 +12,15 @@ const TEMPLATE = path.join(ROOT, 'src', 'client.template.js');
 const OUTPUT = path.join(ROOT, 'client.js');
 
 const FACES = [
-  { file: 'dm-sans-400.woff2', family: 'PosterSans', weight: 400 },
-  { file: 'dm-sans-500.woff2', family: 'PosterSans', weight: 500 },
-  { file: 'dm-sans-700.woff2', family: 'PosterSans', weight: 700 },
-  { file: 'montserrat-500.woff2', family: 'PosterGrotesk', weight: 500 },
+  { file: 'dm-sans-var.woff2', family: 'PosterSans', style: 'normal', weight: '100 900' },
+  { file: 'dm-sans-var-italic.woff2', family: 'PosterSans', style: 'italic', weight: '100 900' },
+  { file: 'montserrat-500.woff2', family: 'PosterGrotesk', style: 'normal', weight: '500' },
 ];
 
 const rules = FACES.map((face) => {
   const bytes = fs.readFileSync(path.join(ASSETS, face.file));
   const data = bytes.toString('base64');
-  return `@font-face{font-family:"${face.family}";font-style:normal;font-weight:${face.weight};`
+  return `@font-face{font-family:"${face.family}";font-style:${face.style};font-weight:${face.weight};`
     + `font-display:swap;src:url(data:font/woff2;base64,${data}) format("woff2")}`;
 });
 

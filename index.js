@@ -166,7 +166,11 @@ function normalizeLayer(value, fallback) {
     id: typeof source.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(source.id) ? source.id : fallback.id,
     text: typeof source.text === 'string' ? source.text : fallback.text,
     size: Math.round(clamp(source.size, 8, 400, fallback.size)),
-    weight: [300, 400, 500, 600, 700].includes(source.weight) ? source.weight : fallback.weight,
+    weight: typeof source.weight === 'number' && source.weight >= 100 && source.weight <= 900
+      ? Math.round(source.weight)
+      : fallback.weight,
+    italic: typeof source.italic === 'boolean' ? source.italic : Boolean(fallback.italic),
+    underline: typeof source.underline === 'boolean' ? source.underline : Boolean(fallback.underline),
     align,
     x: clamp(source.x, 0, 1, fallback.x),
     y: clamp(source.y, 0, 1, fallback.y),
@@ -630,6 +634,8 @@ export function apply(ctx, config = {}) {
                   text: { type: 'string' },
                   size: { type: 'number' },
                   weight: { type: 'number' },
+                  italic: { type: 'boolean' },
+                  underline: { type: 'boolean' },
                   align: { type: 'string' },
                   x: { type: 'number' },
                   y: { type: 'number' },

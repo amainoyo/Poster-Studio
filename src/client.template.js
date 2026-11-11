@@ -215,6 +215,8 @@ void main(){
         clearLibrary: 'Clear library',
         libraryCleared: 'Export library cleared',
         weight: 'Weight',
+        italic: 'Italic',
+        underline: 'Underline',
         letterSpacing: 'Spacing',
         lineHeight: 'Height',
         opacity: 'Opacity',
@@ -273,6 +275,8 @@ void main(){
         clearLibrary: '清空图库',
         libraryCleared: '图库已清空',
         weight: '字重',
+        italic: '斜体',
+        underline: '下划线',
         letterSpacing: '字距',
         lineHeight: '行高',
         opacity: '透明度',
@@ -384,7 +388,7 @@ void main(){
           if (typeof entry.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(entry.id)) layer.id = entry.id;
           if (typeof entry.text === 'string') layer.text = entry.text;
           if (typeof entry.size === 'number' && Number.isFinite(entry.size)) layer.size = Math.min(400, Math.max(8, Math.round(entry.size)));
-          if ([300, 400, 500, 600, 700].includes(entry.weight)) layer.weight = entry.weight;
+          if (typeof entry.weight === 'number' && entry.weight >= 100 && entry.weight <= 900) layer.weight = Math.round(entry.weight);
           if (entry.align === 'left' || entry.align === 'center' || entry.align === 'right') layer.align = entry.align;
           if (typeof entry.x === 'number' && entry.x >= 0 && entry.x <= 1) layer.x = entry.x;
           if (typeof entry.y === 'number' && entry.y >= 0 && entry.y <= 1) layer.y = entry.y;
@@ -400,6 +404,8 @@ void main(){
           if (typeof entry.value === 'string' && entry.value.length <= 2000) layer.value = entry.value;
           const textColor = normalizeColor(entry.textColor);
           if (textColor !== undefined) layer.textColor = textColor;
+          if (typeof entry.italic === 'boolean') layer.italic = entry.italic;
+          if (typeof entry.underline === 'boolean') layer.underline = entry.underline;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
           if (merged.length >= 12) break;
@@ -655,7 +661,7 @@ void main(){
      * @returns {string} the CSS font shorthand.
      */
     function fontFor(layer, latin) {
-      return `${layer.weight} ${layer.size}px ${latin ? LATIN_STACK : FONT_STACK}`;
+      return `${layer.italic ? 'italic ' : ''}${layer.weight} ${layer.size}px ${latin ? LATIN_STACK : FONT_STACK}`;
     }
 
     /**
@@ -769,6 +775,15 @@ void main(){
           ctx.textAlign = 'left';
           ctx.fillText(text, x, baseline);
           x += ctx.measureText(text).width;
+        }
+        if (layer.underline && line.length > 0) {
+          ctx.save();
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.fillStyle = layer.color;
+          ctx.fillRect(lineStart, baseline + layer.size * 0.14, x - lineStart, Math.max(1, layer.size * 0.06));
+          ctx.restore();
         }
         if (lineStart < minX) minX = lineStart;
         if (x > maxX) maxX = x;
@@ -1839,6 +1854,20 @@ void main(){
         lineHeight: '16px',
       };
 
+      const layerToggleStyle = (active) => ({
+        width: 22,
+        height: 22,
+        flex: '0 0 auto',
+        padding: 0,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 6,
+        background: active ? 'var(--dsw-alias-bg-layer-1)' : 'transparent',
+        color: active ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+        cursor: 'pointer',
+        fontSize: 12,
+        fontFamily: FONT_STACK,
+      });
+
       const layerMove = (index, direction) => {
         const target = index + direction;
         if (target < 0 || target >= spec.layers.length) return;
@@ -2153,19 +2182,33 @@ void main(){
             onChange: (value) => patchLayer(layer.id, { y: value }),
           }),
         ]),
-        h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 10 } }, [
+        h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
           h('label', {
             key: 'weightWrap',
-            style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' },
+            style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' },
           }, [
             h('span', { key: 'label' }, store.translate('weight')),
             h('select', {
               key: 'select',
               value: String(layer.weight),
               onChange: (event) => patchLayer(layer.id, { weight: Number(event.target.value) }),
-              style: { width: 58, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
-            }, [300, 400, 500, 600, 700].map((weight) => h('option', { key: weight, value: weight }, String(weight)))),
+              style: { width: 52, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+            }, [100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => h('option', { key: weight, value: weight }, String(weight)))),
           ]),
+          h('button', {
+            key: 'italic',
+            type: 'button',
+            title: store.translate('italic'),
+            onClick: () => patchLayer(layer.id, { italic: !layer.italic }),
+            style: { ...layerToggleStyle(Boolean(layer.italic)), fontStyle: 'italic' },
+          }, 'I'),
+          h('button', {
+            key: 'underline',
+            type: 'button',
+            title: store.translate('underline'),
+            onClick: () => patchLayer(layer.id, { underline: !layer.underline }),
+            style: { ...layerToggleStyle(Boolean(layer.underline)), textDecoration: 'underline' },
+          }, 'U'),
           h(Stepper, {
             key: 'spacing',
             label: store.translate('letterSpacing'),

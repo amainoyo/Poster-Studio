@@ -176,9 +176,12 @@ function normalizeLayer(value, fallback) {
     lineHeight: clamp(source.lineHeight, 0.8, 3, fallback.lineHeight),
     letterSpacing: clamp(source.letterSpacing, -10, 40, fallback.letterSpacing),
     maxWidth: clamp(source.maxWidth, 0.2, 1, fallback.maxWidth),
-    kind: source.kind === 'image' || source.kind === 'qr'
+    kind: source.kind === 'image' || source.kind === 'qr' || source.kind === 'badge'
       ? source.kind
-      : (source.kind === 'text' ? 'text' : (fallback.kind === 'image' || fallback.kind === 'qr' ? fallback.kind : 'text')),
+      : (source.kind === 'text' ? 'text' : (fallback.kind === 'image' || fallback.kind === 'qr' || fallback.kind === 'badge' ? fallback.kind : 'text')),
+    textColor: typeof source.textColor === 'string' && HEX_COLOR.test(source.textColor.trim())
+      ? source.textColor.trim().toLowerCase()
+      : (typeof fallback.textColor === 'string' ? fallback.textColor : '#141414'),
     value: typeof source.value === 'string' && source.value.length <= 2000
       ? source.value
       : (typeof fallback.value === 'string' ? fallback.value : ''),
@@ -634,8 +637,9 @@ export function apply(ctx, config = {}) {
                   lineHeight: { type: 'number' },
                   letterSpacing: { type: 'number' },
                   maxWidth: { type: 'number' },
-                  kind: { type: 'string', enum: ['text', 'image', 'qr'] },
+                  kind: { type: 'string', enum: ['text', 'image', 'qr', 'badge'] },
                   value: { type: 'string' },
+                  textColor: { type: 'string' },
                   width: { type: 'number' },
                   opacity: { type: 'number' },
                 },

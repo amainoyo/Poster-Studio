@@ -234,6 +234,11 @@ void main(){
         addQr: 'Add QR',
         qrValue: 'Link or text',
         qrColor: 'QR color',
+        badgeLayer: 'Badge',
+        addBadge: 'Add badge',
+        badgeText: 'Badge text',
+        textColor: 'Text color',
+        bgColor: 'Background',
         studioFloatHint: 'The poster studio opens as a floating window.',
         close: 'Close',
         export: 'Export PNG',
@@ -287,6 +292,11 @@ void main(){
         addQr: '添加二维码',
         qrValue: '链接或文本',
         qrColor: '二维码颜色',
+        badgeLayer: '角标',
+        addBadge: '添加角标',
+        badgeText: '角标文字',
+        textColor: '文字颜色',
+        bgColor: '背景色',
         studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
@@ -383,11 +393,13 @@ void main(){
           if (typeof entry.lineHeight === 'number' && entry.lineHeight >= 0.8 && entry.lineHeight <= 3) layer.lineHeight = entry.lineHeight;
           if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
-          if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr') layer.kind = entry.kind;
+          if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr' || entry.kind === 'badge') layer.kind = entry.kind;
           if (typeof entry.src === 'string' && entry.src.startsWith('data:image/')) layer.src = entry.src;
           if (typeof entry.width === 'number' && entry.width >= 0.02 && entry.width <= 1.5) layer.width = entry.width;
           if (typeof entry.opacity === 'number' && entry.opacity >= 0 && entry.opacity <= 1) layer.opacity = entry.opacity;
           if (typeof entry.value === 'string' && entry.value.length <= 2000) layer.value = entry.value;
+          const textColor = normalizeColor(entry.textColor);
+          if (textColor !== undefined) layer.textColor = textColor;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
           if (merged.length >= 12) break;
@@ -876,6 +888,28 @@ void main(){
           ctx.drawImage(image, left, top, drawWidth, drawHeight);
           ctx.restore();
           layout.push({ id: layer.id, x: left, y: top, width: drawWidth, height: drawHeight });
+          continue;
+        }
+        if (layer.kind === 'badge') {
+          if (!layer.text) continue;
+          const padding = layer.size * 0.62;
+          const badgeWidth = Math.max(layer.size, measureLine(ctx, layer, layer.text)) + padding * 2;
+          const badgeHeight = layer.size * 1.34;
+          const badgeLeft = layer.x * width - badgeWidth / 2;
+          const badgeTop = layer.y * height - badgeHeight / 2;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
+          ctx.beginPath();
+          ctx.roundRect(badgeLeft, badgeTop, badgeWidth, badgeHeight, badgeHeight / 2);
+          ctx.fillStyle = normalizeColor(layer.color) || '#ffffff';
+          ctx.fill();
+          ctx.fillStyle = normalizeColor(layer.textColor) || '#141414';
+          ctx.font = fontFor(layer, false);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(layer.text, layer.x * width, badgeTop + badgeHeight / 2 + layer.size * 0.06);
+          ctx.restore();
+          layout.push({ id: layer.id, x: badgeLeft, y: badgeTop, width: badgeWidth, height: badgeHeight });
           continue;
         }
         if (layer.kind === 'qr') {
@@ -1764,7 +1798,7 @@ void main(){
 
       const layerLabel = (layer, index) => (LAYER_LABELS[layer.id]
         ? store.translate(LAYER_LABELS[layer.id])
-        : `${store.translate(layer.kind === 'image' ? 'imageLayer' : layer.kind === 'qr' ? 'qrLayer' : 'textLayer')} ${index + 1}`);
+        : `${store.translate(layer.kind === 'image' ? 'imageLayer' : layer.kind === 'qr' ? 'qrLayer' : layer.kind === 'badge' ? 'badgeLayer' : 'textLayer')} ${index + 1}`);
 
       const addLayer = () => {
         const used = new Set(spec.layers.map((layer) => layer.id));
@@ -1853,7 +1887,72 @@ void main(){
         });
       };
 
+      const addBadge = () => {
+        const used = new Set(spec.layers.map((layer) => layer.id));
+        let n = 1;
+        while (used.has(`badge-${n}`)) n += 1;
+        store.applySpec({
+          layers: [
+            ...spec.layers,
+            { id: `badge-${n}`, kind: 'badge', text: '', size: 26, weight: 500, align: 'center', x: 0.5, y: 0.86, width: 0.3, opacity: 1, color: '#ffffff', textColor: '#141414', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
+          ],
+        });
+      };
+
       const layerControls = spec.layers.map((layer, index) => {
+        if (layer.kind === 'badge') {
+          return h('div', { key: layer.id, style: layerCardStyle }, [
+            h('div', {
+              key: 'head',
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+            }, [
+              h('span', {
+                key: 'label',
+                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+              }, layerLabel(layer, index)),
+              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+                ...layerMoveButtons(layer, index),
+                h('input', {
+                  key: 'textColor',
+                  type: 'color',
+                  value: normalizeColor(layer.textColor) || '#141414',
+                  title: store.translate('textColor'),
+                  onChange: (event) => patchLayer(layer.id, { textColor: event.target.value }),
+                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                }),
+                h('input', {
+                  key: 'color',
+                  type: 'color',
+                  value: (normalizeColor(layer.color) || '#ffffff').slice(0, 7),
+                  title: store.translate('bgColor'),
+                  onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                }),
+                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
+              ]),
+            ]),
+            h('input', {
+              key: 'text',
+              type: 'text',
+              value: drafts[layer.id] !== undefined ? drafts[layer.id] : layer.text,
+              placeholder: store.translate('badgeText'),
+              onChange: (event) => setDrafts((current) => ({ ...current, [layer.id]: event.target.value })),
+              onBlur: (event) => {
+                setDrafts((current) => { const next = { ...current }; delete next[layer.id]; return next; });
+                patchLayer(layer.id, { text: event.target.value });
+              },
+              onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
+              style: fieldStyle,
+            }),
+            h('div', { key: 'row', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 200, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
+            ]),
+            h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
+              h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
+            ]),
+          ]);
+        }
         if (layer.kind === 'qr') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
             h('div', {
@@ -2157,7 +2256,7 @@ void main(){
           }),
         ]),
         ...layerControls,
-        h('div', { key: 'addRow', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 } }, [
+        h('div', { key: 'addRow', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 } }, [
           h('button', {
             key: 'addText',
             type: 'button',
@@ -2179,6 +2278,13 @@ void main(){
             onClick: addQr,
             style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addQr')}`),
+          h('button', {
+            key: 'addBadge',
+            type: 'button',
+            disabled: spec.layers.length >= 12,
+            onClick: addBadge,
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+          }, `+ ${store.translate('addBadge')}`),
         ]),
         h('input', {
           key: 'imageFile',

@@ -337,7 +337,7 @@ void main(){
         content: 'Content',
         palette: 'Palette',
         backdrop: 'Backdrop',
-        allSizes: 'All sizes',
+        allSizes: 'Show all size previews',
         customSize: 'Custom size',
         customSizeHint: 'Each side 200–4000 px',
         canvasWidth: 'Width',
@@ -405,7 +405,7 @@ void main(){
         content: '内容',
         palette: '配色',
         backdrop: '背景',
-        allSizes: '全部尺寸',
+        allSizes: '显示全部尺寸画面',
         customSize: '自定义尺寸',
         customSizeHint: '每边 200–4000 像素',
         canvasWidth: '宽',
@@ -2734,9 +2734,9 @@ void main(){
               fontSize: 12,
             },
           }, [
-            h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
             ...SIZE_ORDER.map((key) => h('option', { key, value: key }, `${SIZES[key].label} ${key}`)),
             h('option', { key: '__custom', value: '__custom' }, SIZES[spec.size] ? store.translate('customSize') : `${store.translate('customSize')} ${preset.width}×${preset.height}`),
+            h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
           ]),
           h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)' } }, `${preset.width}×${preset.height}`),
           h('button', {

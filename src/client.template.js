@@ -2235,6 +2235,18 @@ void main(){
           onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
           style: fieldStyle,
         }),
+        h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+          h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
+          h('select', {
+            key: 'select',
+            value: layer.font ?? '',
+            onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
+            style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+          }, [
+            h('option', { key: '', value: '' }, store.translate('fontDefault')),
+            ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
+          ]),
+        ]),
         h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
           h(Stepper, {
             key: 'size',
@@ -2251,44 +2263,6 @@ void main(){
             value: layer.align,
             onChange: (value) => patchLayer(layer.id, { align: value }),
           }),
-        ]),
-        h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
-          h(Stepper, {
-            key: 'x',
-            label: 'X%',
-            stretch: true,
-            value: layer.x,
-            min: 0,
-            max: 1,
-            step: 0.01,
-            scale: 100,
-            precision: 0,
-            onChange: (value) => patchLayer(layer.id, { x: value }),
-          }),
-          h(Stepper, {
-            key: 'y',
-            label: 'Y%',
-            stretch: true,
-            value: layer.y,
-            min: 0,
-            max: 1,
-            step: 0.01,
-            scale: 100,
-            precision: 0,
-            onChange: (value) => patchLayer(layer.id, { y: value }),
-          }),
-        ]),
-        h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-          h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
-          h('select', {
-            key: 'select',
-            value: layer.font ?? '',
-            onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
-            style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
-          }, [
-            h('option', { key: '', value: '' }, store.translate('fontDefault')),
-            ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
-          ]),
         ]),
         h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
           h('label', {
@@ -2356,6 +2330,32 @@ void main(){
                 ? layer.color.slice(0, 7)
                 : layer.color.slice(0, 7) + Math.round(value * 255).toString(16).padStart(2, '0'),
             }),
+          }),
+        ]),
+        h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
+          h(Stepper, {
+            key: 'x',
+            label: 'X%',
+            stretch: true,
+            value: layer.x,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { x: value }),
+          }),
+          h(Stepper, {
+            key: 'y',
+            label: 'Y%',
+            stretch: true,
+            value: layer.y,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { y: value }),
           }),
         ]),
         ]);

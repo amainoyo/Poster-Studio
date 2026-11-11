@@ -230,6 +230,10 @@ void main(){
         moveUp: 'Move up',
         moveDown: 'Move down',
         imageWidth: 'Width',
+        qrLayer: 'QR',
+        addQr: 'Add QR',
+        qrValue: 'Link or text',
+        qrColor: 'QR color',
         studioFloatHint: 'The poster studio opens as a floating window.',
         close: 'Close',
         export: 'Export PNG',
@@ -279,6 +283,10 @@ void main(){
         moveUp: '上移',
         moveDown: '下移',
         imageWidth: '宽度',
+        qrLayer: '二维码',
+        addQr: '添加二维码',
+        qrValue: '链接或文本',
+        qrColor: '二维码颜色',
         studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
@@ -375,10 +383,11 @@ void main(){
           if (typeof entry.lineHeight === 'number' && entry.lineHeight >= 0.8 && entry.lineHeight <= 3) layer.lineHeight = entry.lineHeight;
           if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
-          if (entry.kind === 'image' || layer.kind === 'image') layer.kind = 'image';
+          if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr') layer.kind = entry.kind;
           if (typeof entry.src === 'string' && entry.src.startsWith('data:image/')) layer.src = entry.src;
           if (typeof entry.width === 'number' && entry.width >= 0.02 && entry.width <= 1.5) layer.width = entry.width;
           if (typeof entry.opacity === 'number' && entry.opacity >= 0 && entry.opacity <= 1) layer.opacity = entry.opacity;
+          if (typeof entry.value === 'string' && entry.value.length <= 2000) layer.value = entry.value;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
           if (merged.length >= 12) break;
@@ -768,6 +777,41 @@ void main(){
     /** Decoded images shared across renderers, keyed by data URL. */
     const imageCache = new Map();
 
+    /** qrcode-generator (MIT), inlined at build time; see NOTICE. */
+    const qrcodeLib = __QRCODE_LIB__;
+
+    /** Encoded QR matrices keyed by text. */
+    const qrCache = new Map();
+
+    /**
+     * Encode text into a QR module matrix once and share it.
+     * @param {string} value - the text to encode.
+     * @returns {{ count: number, rows: boolean[][] } | null} the matrix, or null when empty or too long.
+     */
+    function cachedQr(value) {
+      const text = typeof value === 'string' ? value.trim() : '';
+      if (text.length === 0) return null;
+      if (qrCache.has(text)) return qrCache.get(text);
+      let matrix = null;
+      try {
+        const code = qrcodeLib(0, 'M');
+        code.addData(text);
+        code.make();
+        const count = code.getModuleCount();
+        const rows = [];
+        for (let row = 0; row < count; row += 1) {
+          const line = [];
+          for (let col = 0; col < count; col += 1) line.push(code.isDark(row, col));
+          rows.push(line);
+        }
+        matrix = { count, rows };
+      } catch (error) {
+        matrix = null;
+      }
+      qrCache.set(text, matrix);
+      return matrix;
+    }
+
     /**
      * Decode one data-URL image once and share it across renderers.
      * @param {string} src - the data URL.
@@ -832,6 +876,32 @@ void main(){
           ctx.drawImage(image, left, top, drawWidth, drawHeight);
           ctx.restore();
           layout.push({ id: layer.id, x: left, y: top, width: drawWidth, height: drawHeight });
+          continue;
+        }
+        if (layer.kind === 'qr') {
+          const qr = cachedQr(layer.value);
+          if (!qr) continue;
+          const quiet = 2;
+          const cell = Math.max(1, Math.max(24, (layer.width ?? 0.25) * width) / (qr.count + quiet * 2));
+          const drawWidth = cell * (qr.count + quiet * 2);
+          const qrLeft = layer.x * width - drawWidth / 2;
+          const qrTop = layer.y * height - drawWidth / 2;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
+          const background = layer.bg === 'none' ? '' : normalizeColor(layer.bg) || '#ffffff';
+          if (background !== '') {
+            ctx.fillStyle = background;
+            ctx.fillRect(qrLeft, qrTop, drawWidth, drawWidth);
+          }
+          ctx.fillStyle = normalizeColor(layer.color) || '#000000';
+          for (let row = 0; row < qr.count; row += 1) {
+            for (let col = 0; col < qr.count; col += 1) {
+              if (!qr.rows[row][col]) continue;
+              ctx.fillRect(qrLeft + (col + quiet) * cell, qrTop + (row + quiet) * cell, cell + 0.4, cell + 0.4);
+            }
+          }
+          ctx.restore();
+          layout.push({ id: layer.id, x: qrLeft, y: qrTop, width: drawWidth, height: drawWidth });
           continue;
         }
         if (!layer.text) continue;
@@ -1694,7 +1764,7 @@ void main(){
 
       const layerLabel = (layer, index) => (LAYER_LABELS[layer.id]
         ? store.translate(LAYER_LABELS[layer.id])
-        : `${store.translate(layer.kind === 'image' ? 'imageLayer' : 'textLayer')} ${index + 1}`);
+        : `${store.translate(layer.kind === 'image' ? 'imageLayer' : layer.kind === 'qr' ? 'qrLayer' : 'textLayer')} ${index + 1}`);
 
       const addLayer = () => {
         const used = new Set(spec.layers.map((layer) => layer.id));
@@ -1771,7 +1841,75 @@ void main(){
         style: layerChipStyle,
       }, '✕');
 
+      const addQr = () => {
+        const used = new Set(spec.layers.map((layer) => layer.id));
+        let n = 1;
+        while (used.has(`qr-${n}`)) n += 1;
+        store.applySpec({
+          layers: [
+            ...spec.layers,
+            { id: `qr-${n}`, kind: 'qr', value: 'https://', text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.5, width: 0.28, opacity: 1, color: '#000000', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
+          ],
+        });
+      };
+
       const layerControls = spec.layers.map((layer, index) => {
+        if (layer.kind === 'qr') {
+          return h('div', { key: layer.id, style: layerCardStyle }, [
+            h('div', {
+              key: 'head',
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+            }, [
+              h('span', {
+                key: 'label',
+                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+              }, layerLabel(layer, index)),
+              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+                ...layerMoveButtons(layer, index),
+                h('input', {
+                  key: 'color',
+                  type: 'color',
+                  value: normalizeColor(layer.color) || '#000000',
+                  title: store.translate('qrColor'),
+                  onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                }),
+                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
+              ]),
+            ]),
+            h('input', {
+              key: 'value',
+              type: 'text',
+              value: drafts[`value:${layer.id}`] !== undefined ? drafts[`value:${layer.id}`] : (layer.value ?? ''),
+              placeholder: store.translate('qrValue'),
+              onChange: (event) => setDrafts((current) => ({ ...current, [`value:${layer.id}`]: event.target.value })),
+              onBlur: (event) => {
+                setDrafts((current) => { const next = { ...current }; delete next[`value:${layer.id}`]; return next; });
+                patchLayer(layer.id, { value: event.target.value });
+              },
+              onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
+              style: fieldStyle,
+            }),
+            h('div', { key: 'size', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, {
+                key: 'w',
+                label: store.translate('imageWidth'),
+                stretch: true,
+                value: layer.width ?? 0.28,
+                min: 0.02,
+                max: 1.5,
+                step: 0.01,
+                scale: 100,
+                precision: 0,
+                onChange: (value) => patchLayer(layer.id, { width: value }),
+              }),
+            ]),
+            h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
+              h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
+            ]),
+          ]);
+        }
         if (layer.kind === 'image') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
             h('div', {
@@ -2019,7 +2157,7 @@ void main(){
           }),
         ]),
         ...layerControls,
-        h('div', { key: 'addRow', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } }, [
+        h('div', { key: 'addRow', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 } }, [
           h('button', {
             key: 'addText',
             type: 'button',
@@ -2034,6 +2172,13 @@ void main(){
             onClick: () => { pendingImageLayer.current = null; imageFileInput.current?.click(); },
             style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addImage')}`),
+          h('button', {
+            key: 'addQr',
+            type: 'button',
+            disabled: spec.layers.length >= 12,
+            onClick: addQr,
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+          }, `+ ${store.translate('addQr')}`),
         ]),
         h('input', {
           key: 'imageFile',

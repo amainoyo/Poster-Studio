@@ -176,7 +176,12 @@ function normalizeLayer(value, fallback) {
     lineHeight: clamp(source.lineHeight, 0.8, 3, fallback.lineHeight),
     letterSpacing: clamp(source.letterSpacing, -10, 40, fallback.letterSpacing),
     maxWidth: clamp(source.maxWidth, 0.2, 1, fallback.maxWidth),
-    kind: source.kind === 'image' ? 'image' : 'text',
+    kind: source.kind === 'image' || source.kind === 'qr'
+      ? source.kind
+      : (source.kind === 'text' ? 'text' : (fallback.kind === 'image' || fallback.kind === 'qr' ? fallback.kind : 'text')),
+    value: typeof source.value === 'string' && source.value.length <= 2000
+      ? source.value
+      : (typeof fallback.value === 'string' ? fallback.value : ''),
     src: typeof source.src === 'string'
       && /^data:image\/(png|jpeg|webp|gif);base64,/.test(source.src)
       && source.src.length <= 2500000
@@ -629,7 +634,8 @@ export function apply(ctx, config = {}) {
                   lineHeight: { type: 'number' },
                   letterSpacing: { type: 'number' },
                   maxWidth: { type: 'number' },
-                  kind: { type: 'string', enum: ['text', 'image'] },
+                  kind: { type: 'string', enum: ['text', 'image', 'qr'] },
+                  value: { type: 'string' },
                   width: { type: 'number' },
                   opacity: { type: 'number' },
                 },

@@ -28,9 +28,19 @@ const rules = FACES.map((face) => {
 const css = rules.join('\n');
 if (css.includes('`') || css.includes('${')) throw new Error('font CSS would break the template literal');
 
+// qrcode-generator (MIT): UMD wrapped into one expression with the UTF-8
+// string encoding enabled, matching the qrcode_UTF8.js extension.
+const qrcodeSource = fs.readFileSync(path.join(ASSETS, 'qrcode.min.js'), 'utf8');
+const qrcodeExpr = '(function(){' + qrcodeSource
+  + ';(function(P){if(P.stringToBytesFuncs&&P.stringToBytesFuncs[\'UTF-8\']){P.stringToBytes=P.stringToBytesFuncs[\'UTF-8\'];}}(qrcode));'
+  + 'return qrcode;})()';
+
 const template = fs.readFileSync(TEMPLATE, 'utf8');
 if (!template.includes('__FONT_FACE_CSS__')) throw new Error('template placeholder missing');
-const output = template.replace('__FONT_FACE_CSS__', '`' + css + '`');
+if (!template.includes('__QRCODE_LIB__')) throw new Error('qrcode placeholder missing');
+const output = template
+  .replace('__FONT_FACE_CSS__', '`' + css + '`')
+  .replace('__QRCODE_LIB__', () => qrcodeExpr);
 fs.writeFileSync(OUTPUT, output, 'utf8');
 
 console.log('wrote', OUTPUT, (output.length / 1024).toFixed(1), 'KiB');

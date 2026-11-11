@@ -27,6 +27,15 @@ Both families are redistributed unmodified under the SIL Open Font License,
 Version 1.1. The full licence text is available at
 https://openfontlicense.org/open-font-license-official-text/
 
+Bundled JavaScript
+------------------
+The client artifact inlines qrcode-generator 1.4.4 (minified, with its
+UTF-8 string encoding enabled) for QR code layers.
+
+  qrcode-generator — Copyright (c) 2010-2023 Kazuhiko Arase
+  Licensed under the MIT License
+  https://github.com/kazuhikoarase/qrcode-generator
+
 Shader backdrop
 ---------------
 The WebGL2 fragment and vertex shaders in client.js are adapted from the

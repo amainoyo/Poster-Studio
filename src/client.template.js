@@ -1,0 +1,2239 @@
+window.__ModuleLoader__.load({
+  id: '@local/dsh-poster-studio',
+  factory(require) {
+    const React = require('react');
+    const h = React.createElement;
+    let ReactDOM = null;
+    try {
+      ReactDOM = require('react-dom');
+    } catch {
+      ReactDOM = null;
+    }
+
+    // ---------------------------------------------------------------------
+    // Fonts: the Latin and Chinese faces of the official DeepSeek Harness
+    // page, inlined so the poster renders identically offline.
+    // ---------------------------------------------------------------------
+    const FONT_FACE_CSS = __FONT_FACE_CSS__;
+
+    const FONT_STACK = '"PosterSans", system-ui, -apple-system, BlinkMacSystemFont, '
+      + '"Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", '
+      + '"Microsoft YaHei", sans-serif';
+
+    const LATIN_STACK = '"PosterGrotesk", ' + FONT_STACK;
+
+    // ---------------------------------------------------------------------
+    // Canvas presets.
+    // ---------------------------------------------------------------------
+    const SIZES = {
+      '1080x1350': { width: 1080, height: 1350, label: '3:4 竖版' },
+      '1080x1920': { width: 1080, height: 1920, label: '9:16 竖屏' },
+      '1920x1080': { width: 1920, height: 1080, label: '16:9 横版' },
+      '1080x1080': { width: 1080, height: 1080, label: '1:1 方图' },
+      '1200x628': { width: 1200, height: 628, label: 'Banner' },
+    };
+
+    const SIZE_ORDER = ['1080x1350', '1080x1920', '1920x1080', '1080x1080', '1200x628'];
+
+    const COLOR_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+
+    const DEFAULT_COLORS = {
+      c1: '#000000',
+      c2: '#000000',
+      c3: '#204a7e',
+      c4: '#cec8bb',
+      c5: '#000000',
+    };
+
+    const PALETTES = [
+      { name: '官网', colors: { c1: '#000000', c2: '#000000', c3: '#204a7e', c4: '#cec8bb', c5: '#000000' } },
+      { name: '靛蓝金', colors: { c1: '#05070f', c2: '#0a1024', c3: '#2b4a9d', c4: '#e8b06a', c5: '#0b1020' } },
+      { name: '墨绿', colors: { c1: '#040a08', c2: '#0a1410', c3: '#1f5a4a', c4: '#d8e2c0', c5: '#08120e' } },
+      { name: '夜紫', colors: { c1: '#08060f', c2: '#0e0a1c', c3: '#4b2f8f', c4: '#e0c8f0', c5: '#0c0818' } },
+      { name: '暗红', colors: { c1: '#0d0507', c2: '#170a0c', c3: '#8f2f39', c4: '#f0d0b0', c5: '#120708' } },
+      { name: '石墨', colors: { c1: '#08090b', c2: '#101216', c3: '#4a5058', c4: '#e8e8e6', c5: '#0b0c0e' } },
+    ];
+
+    const LAYER_LABELS = { title: '标题', subtitle: '副标题', footer: '落款' };
+
+    // ---------------------------------------------------------------------
+    // Shader: the backdrop of the official DeepSeek Harness page, with the
+    // five colours and the tuning values turned into uniforms.
+    // ---------------------------------------------------------------------
+    const VERTEX_SHADER = `#version 300 es
+in vec4 a_position;
+void main() { gl_Position = a_position; }
+`;
+
+    const FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform vec2 u_loop1, u_loop2, u_loop3, u_loop4;
+uniform vec2 u_resolution;
+uniform vec2 u_grainResolution;
+uniform vec3 u_c1;
+uniform vec3 u_c2;
+uniform vec3 u_c3;
+uniform vec3 u_c4;
+uniform vec3 u_c5;
+uniform float u_scale;
+uniform vec2 u_offset;
+uniform float u_grain;
+uniform float u_bloomStrength;
+uniform float u_vignette;
+const vec2 u_lightPos=vec2(.89,.46);
+uniform float u_lightCore;
+uniform float u_lightHalo;
+const float u_bloomThreshold=.61;
+const float u_bloomRange=.18;
+out vec4 fragColor;
+
+vec3 mod289v3(vec3 x){return x-floor(x*(1./289.))*289.;}
+vec4 mod289v4(vec4 x){return x-floor(x*(1./289.))*289.;}
+vec4 permute(vec4 x){return mod289v4(((x*34.)+1.)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}
+
+float snoise(vec3 v){
+  const vec2 C=vec2(1./6.,1./3.);
+  const vec4 D=vec4(0.,.5,1.,2.);
+  vec3 i=floor(v+dot(v,C.yyy));
+  vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz);
+  vec3 l=1.-g;
+  vec3 i1=min(g.xyz,l.zxy);
+  vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx;
+  vec3 x2=x0-i2+C.yyy;
+  vec3 x3=x0-D.yyy;
+  i=mod289v3(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.,i1.z,i2.z,1.))+i.y+vec4(0.,i1.y,i2.y,1.))+i.x+vec4(0.,i1.x,i2.x,1.));
+  float n_=.142857142857;
+  vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z);
+  vec4 y_=floor(j-7.*x_);
+  vec4 x=x_*ns.x+ns.yyyy;
+  vec4 y=y_*ns.x+ns.yyyy;
+  vec4 h=1.-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy);
+  vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.+1.;
+  vec4 s1=floor(b1)*2.+1.;
+  vec4 sh=-step(h,vec4(0.));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
+  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);
+  vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+  vec4 m=max(.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.);
+  m=m*m;
+  return 42.*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}
+
+float hash(vec2 p){
+  vec3 p3=fract(vec3(p.xyx)*.1031);
+  p3+=dot(p3,p3.yzx+33.33);
+  return fract((p3.x+p3.y)*p3.z);
+}
+
+float fbm(vec3 p){
+  float v=0.,amp=.6;vec3 shift=vec3(100.);
+  for(int i=0;i<1;i++){v+=amp*snoise(p);p=p*2.+shift;amp*=.4;}
+  return v;
+}
+
+float fluidNoise(vec2 uv){
+  float n1=fbm(vec3(uv*.6,0.) + vec3(u_loop1.y,0.,u_loop1.x));
+  float n2=fbm(vec3(uv*.6+5.2,1.3) + vec3(0.,u_loop1.y,u_loop1.x));
+  vec2 w1=vec2(n1,n2)*.6;
+  float n3=fbm(vec3((uv+w1)*.7+1.7,3.1) + vec3(u_loop2.y,0.,u_loop2.x));
+  float n4=fbm(vec3((uv+w1)*.7+9.2,5.7) + vec3(0.,u_loop2.y,u_loop2.x));
+  vec2 w2=vec2(n3,n4)*.5;
+  return fbm(vec3((uv+w1+w2)*.5,0.) + vec3(u_loop3.y,0.,u_loop3.x));
+}
+
+vec2 curlish(vec2 uv){
+  float eps=.02;
+  float n=snoise(vec3(uv*.8,0.) + vec3(0.,u_loop3.y,u_loop3.x));
+  float nx=snoise(vec3((uv+vec2(eps,0.))*.8,0.) + vec3(0.,u_loop3.y,u_loop3.x));
+  float ny=snoise(vec3((uv+vec2(0.,eps))*.8,0.) + vec3(0.,u_loop3.y,u_loop3.x));
+  return vec2(-(ny-n)/eps,(nx-n)/eps)*.003;
+}
+
+void main(){
+  float aspect=u_resolution.x/u_resolution.y;
+  vec2 uv=gl_FragCoord.xy/u_resolution;
+  vec2 suv=vec2(uv.x*aspect, uv.y) * u_scale + u_offset;
+
+  vec2 curl=curlish(suv);
+  vec2 uvD=suv+curl*12.;
+  float f=fluidNoise(uvD);
+  float swirl=snoise(vec3(uvD*.8+f*1.5,0.) + vec3(u_loop4.y,0.,u_loop4.x))*.5+.5;
+  float n=f*.5+.5;
+  vec3 col=mix(u_c1,u_c2,smoothstep(.2,.5,n));
+  col=mix(col,u_c3,smoothstep(.35,.65,n+swirl*.25));
+  col=mix(col,u_c4,smoothstep(.6,.85,swirl)*.55);
+  col=mix(col,u_c5,smoothstep(.5,.8,n*swirl)*.35);
+
+  if(u_grain>0.0){
+    vec2 flowOffset = (uvD - suv) * u_grainResolution.y;
+    vec2 gp = floor((uv * u_grainResolution + flowOffset) / 5.0);
+    float gr=hash(gp)*2.-1.;
+    col+=gr*u_grain;
+  }
+
+  float luma=dot(col,vec3(.299,.587,.114));
+  float bloom=smoothstep(u_bloomThreshold-u_bloomRange,u_bloomThreshold+u_bloomRange,luma);
+  col+=(col*.85+vec3(.15,.145,.13))*bloom*u_bloomStrength;
+
+  float ld=length((uv-u_lightPos)*vec2(aspect,1.));
+  float core=exp(-ld*ld*4.5);
+  float halo=exp(-ld*1.8);
+  col+=vec3(1.,.97,.9)*core*u_lightCore+vec3(.72,.8,1.)*halo*u_lightHalo;
+
+  float vig=1.-smoothstep(.35,.75,length(uv-.5));
+  col=mix(col*(1.-u_vignette),col,vig);
+  fragColor=vec4(col,1.);
+}
+`;
+
+    /** Loop periods and radii of the official animation. */
+    const LOOP_PERIODS = [3000, 3300, 3900, 4200];
+    const LOOP_RADII = [0.0102, 0.0085, 0.17 * 0.04, 0.17 * 0.035];
+    const TWO_PI = Math.PI * 2;
+
+    /** Frame budget of the official animation: 30 frames per second. */
+    const FRAME_INTERVAL = 1000 / 30;
+
+    /** Visible strings of the studio, per language. */
+    const DICTIONARIES = {
+      en: {
+        open: 'Poster',
+        openTitle: 'Open the poster studio',
+        studio: 'Poster Studio',
+        saved: 'Saved',
+        clearLibrary: 'Clear library',
+        libraryCleared: 'Export library cleared',
+        studioFloatHint: 'The poster studio opens as a floating window.',
+        close: 'Close',
+        export: 'Export PNG',
+        reset: 'Reset',
+        undo: 'Undo',
+        redo: 'Redo',
+        content: 'Content',
+        palette: 'Palette',
+        backdrop: 'Backdrop',
+        allSizes: 'All sizes',
+        title: 'Headline',
+        subtitle: 'Subtitle',
+        footer: 'Footer',
+        fontSize: 'Font size',
+        exported: 'Saved to',
+        askAi: 'AI copy',
+        variants: 'Variants',
+        variantsTab: 'Variants',
+        library: 'Library',
+        importPreset: 'Import',
+        exportPreset: 'Export',
+        applyVariant: 'Apply',
+        noExports: 'Nothing exported yet.',
+        fullscreen: 'Full screen',
+        restore: 'Restore',
+      },
+      zh: {
+        open: '海报',
+        openTitle: '打开海报工作台',
+        studio: '海报工作台',
+        saved: '已保存',
+        clearLibrary: '清空图库',
+        libraryCleared: '图库已清空',
+        studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
+        close: '关闭',
+        export: '导出 PNG',
+        reset: '重置',
+        undo: '撤销',
+        redo: '重做',
+        content: '内容',
+        palette: '配色',
+        backdrop: '背景',
+        allSizes: '全部尺寸',
+        title: '标题',
+        subtitle: '副标题',
+        footer: '落款',
+        fontSize: '字号',
+        exported: '已保存到',
+        askAi: 'AI 文案',
+        variants: '批量变体',
+        variantsTab: '变体',
+        library: '图库',
+        importPreset: '导入',
+        exportPreset: '导出',
+        applyVariant: '应用',
+        noExports: '还没有导出过海报。',
+        fullscreen: '全屏',
+        restore: '还原',
+      },
+    };
+
+    /** Split Latin runs out of a line, the way the official page does. */
+    const LATIN_RUN = /([\p{Script=Latin}\p{M}\p{N}]+)/u;
+
+    /** A CJK character counts as its own wrapping token. */
+    const CJK_CHAR = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/;
+
+    /**
+     * Normalise one colour value.
+     * @param {unknown} value - candidate colour.
+     * @returns {string | undefined} a #rrggbb colour, when the value is one.
+     */
+    function normalizeColor(value) {
+      if (typeof value !== 'string') return undefined;
+      const trimmed = value.trim();
+      return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed.toLowerCase() : undefined;
+    }
+
+    /**
+     * Merge one partial specification into a complete one.
+     * @param {Record<string, any>} base - specification to start from.
+     * @param {Record<string, any>} patch - partial specification.
+     * @returns {Record<string, any>} the merged specification.
+     */
+    function mergeSpec(base, patch) {
+      const next = {
+        version: 1,
+        size: base.size,
+        layers: base.layers.map((layer) => ({ ...layer })),
+        colors: { ...base.colors },
+        shader: { ...base.shader },
+      };
+      if (!patch || typeof patch !== 'object') return next;
+      if (typeof patch.size === 'string' && SIZES[patch.size]) next.size = patch.size;
+      if (patch.colors && typeof patch.colors === 'object') {
+        for (const key of COLOR_KEYS) {
+          const color = normalizeColor(patch.colors[key]);
+          if (color !== undefined) next.colors[key] = color;
+        }
+      }
+      if (patch.shader && typeof patch.shader === 'object') {
+        for (const key of Object.keys(next.shader)) {
+          const value = patch.shader[key];
+          if (typeof next.shader[key] === 'boolean') {
+            if (typeof value === 'boolean') next.shader[key] = value;
+          } else if (typeof value === 'number' && Number.isFinite(value)) {
+            next.shader[key] = value;
+          }
+        }
+      }
+      if (Array.isArray(patch.layers)) {
+        for (const layer of next.layers) {
+          const candidate = patch.layers.find((entry) => entry && entry.id === layer.id);
+          if (candidate && typeof candidate === 'object') {
+            for (const key of Object.keys(layer)) {
+              const value = candidate[key];
+              if (typeof layer[key] === 'string' && typeof value === 'string') layer[key] = value;
+              else if (typeof layer[key] === 'number' && typeof value === 'number') layer[key] = value;
+            }
+          }
+        }
+      }
+      return next;
+    }
+
+    /**
+     * Build a default specification.
+     * @returns {Record<string, any>} the default specification.
+     */
+    function defaultSpec() {
+      return {
+        version: 1,
+        size: '1080x1350',
+        layers: [
+          { id: 'title', text: '一切皆插件', size: 96, weight: 500, align: 'center', x: 0.5, y: 0.42, color: '#ffffff', lineHeight: 1.16, letterSpacing: 0, maxWidth: 0.8 },
+          { id: 'subtitle', text: '', size: 34, weight: 400, align: 'center', x: 0.5, y: 0.56, color: '#ffffffc2', lineHeight: 1.6, letterSpacing: 0, maxWidth: 0.7 },
+          { id: 'footer', text: '', size: 24, weight: 400, align: 'center', x: 0.5, y: 0.92, color: '#ffffff8c', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
+        ],
+        colors: { ...DEFAULT_COLORS },
+        shader: {
+          scale: 1.19,
+          offsetX: -1.24,
+          offsetY: -0.48,
+          grain: 0.005,
+          bloom: 0.4,
+          vignette: 0.38,
+          lightCore: 0.14,
+          lightHalo: 0.2,
+          speed: 1,
+          paused: false,
+        },
+      };
+    }
+
+    /**
+     * The studio store shared by the panel, the composer control, and the
+     * tool view.
+     */
+    const store = {
+      spec: defaultSpec(),
+      remote: undefined,
+      lastRemote: '',
+      history: [],
+      future: [],
+      library: [],
+      variants: [],
+      listeners: new Set(),
+      translate: (key) => key,
+      pickerActive: false,
+      lastPickerAt: 0,
+      /**
+       * Subscribe to store changes.
+       * @param {() => void} listener - change listener.
+       * @returns {() => void} the unsubscribe function.
+       */
+      subscribe(listener) {
+        this.listeners.add(listener);
+        return () => { this.listeners.delete(listener); };
+      },
+      /** Notify every listener. */
+      emit() {
+        for (const listener of Array.from(this.listeners)) {
+          try { listener(); } catch { /* one broken listener must not stop the rest */ }
+        }
+      },
+      /**
+       * Replace the specification and notify every listener.
+       * @param {Record<string, any>} patch - partial specification.
+       * @param {boolean} remember - whether the change joins the undo history.
+       * @param {boolean} sync - whether the change is pushed to the Host.
+       */
+      applySpec(patch, remember = true, sync = true) {
+        const next = mergeSpec(this.spec, patch);
+        if (JSON.stringify(next) === JSON.stringify(this.spec)) return;
+        if (remember) {
+          this.history.push(JSON.stringify(this.spec));
+          if (this.history.length > 60) this.history.shift();
+          this.future.length = 0;
+        }
+        this.spec = next;
+        this.emit();
+        if (sync) void this.push();
+      },
+      /**
+       * Start a drag transaction: the next changes join one undo step.
+       */
+      beginTransaction() {
+        this.transaction = JSON.stringify(this.spec);
+      },
+      /**
+       * Finish a drag transaction and push it to the Host once.
+       */
+      commitTransaction() {
+        const start = this.transaction;
+        this.transaction = undefined;
+        if (start === undefined) return;
+        if (start === JSON.stringify(this.spec)) return;
+        this.history.push(start);
+        if (this.history.length > 60) this.history.shift();
+        this.future.length = 0;
+        void this.push();
+      },
+      /**
+       * Replace the whole specification without touching the history.
+       * @param {Record<string, any>} spec - complete specification.
+       */
+      replaceSpec(spec) {
+        const next = mergeSpec(defaultSpec(), spec);
+        if (JSON.stringify(next) === JSON.stringify(this.spec)) return;
+        this.spec = next;
+        this.emit();
+      },
+      /** Undo the last committed change. */
+      undo() {
+        const previous = this.history.pop();
+        if (previous === undefined) return;
+        this.future.push(JSON.stringify(this.spec));
+        this.spec = JSON.parse(previous);
+        this.emit();
+        void this.push();
+      },
+      /** Redo the last undone change. */
+      redo() {
+        const next = this.future.pop();
+        if (next === undefined) return;
+        this.history.push(JSON.stringify(this.spec));
+        this.spec = JSON.parse(next);
+        this.emit();
+        void this.push();
+      },
+      /**
+       * Send the current specification to the Host.
+       * @returns {Promise<boolean>} whether the Host accepted it.
+       */
+      async push() {
+        if (!this.remote) return false;
+        const payload = JSON.stringify(this.spec);
+        try {
+          const response = await fetch('/poster-studio/spec', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: payload,
+          });
+          if (!response.ok) return false;
+          this.lastRemote = await response.text();
+          return true;
+        } catch (error) {
+          console.warn('poster-studio: the poster design could not be saved', error);
+          return false;
+        }
+      },
+      /**
+       * Read the current specification from the Host.
+       * @returns {Promise<boolean>} whether the Host answered with a change.
+       */
+      async pull() {
+        if (!this.remote) return false;
+        try {
+          const response = await fetch('/poster-studio/spec', { headers: { accept: 'application/json' } });
+          if (!response.ok) return false;
+          const text = await response.text();
+          if (text === this.lastRemote) return false;
+          this.lastRemote = text;
+          this.spec = mergeSpec(defaultSpec(), JSON.parse(text));
+          this.emit();
+          return true;
+        } catch (error) {
+          if (!this.warned) {
+            this.warned = true;
+            console.warn('poster-studio: the poster design could not be read', error);
+          }
+          return false;
+        }
+      },
+    };
+
+    /**
+     * Build one batch of poster variants: palette rotation crossed with a
+     * few layout moves.
+     * @param {Record<string, any>} spec - the specification to vary.
+     * @param {number} count - how many variants to build.
+     * @returns {Record<string, any>[]} the variant specifications.
+     */
+    function buildVariants(spec, count) {
+      const layouts = [
+        { align: 'center', x: 0.5, y: 0.42, scale: 1 },
+        { align: 'left', x: 0.28, y: 0.72, scale: 0.86 },
+        { align: 'right', x: 0.72, y: 0.34, scale: 0.94 },
+        { align: 'center', x: 0.5, y: 0.5, scale: 1.18 },
+        { align: 'left', x: 0.22, y: 0.3, scale: 1.06 },
+        { align: 'right', x: 0.78, y: 0.78, scale: 0.8 },
+      ];
+      const variants = [];
+      for (let index = 0; index < count; index += 1) {
+        const palette = PALETTES[index % PALETTES.length];
+        const layout = layouts[index % layouts.length];
+        variants.push({
+          ...spec,
+          colors: { ...palette.colors },
+          layers: spec.layers.map((layer) => (
+            layer.id === 'title'
+              ? { ...layer, align: layout.align, x: layout.x, y: layout.y, size: Math.round(layer.size * layout.scale) }
+              : { ...layer, align: layout.align, x: layout.x }
+          )),
+        });
+      }
+      return variants;
+    }
+
+    /**
+     * Render one batch of variants into small preview canvases. One WebGL
+     * context renders them in turn, so a batch never exhausts the browser's
+     * context budget.
+     * @param {Record<string, any>[]} variants - the variant specifications.
+     * @param {number} width - the preview width.
+     * @param {number} height - the preview height.
+     * @returns {Promise<HTMLCanvasElement[]>} one canvas per variant.
+     */
+    async function renderVariants(variants, width, height) {
+      const preset = SIZES[variants[0]?.size] || SIZES['1080x1350'];
+      const renderer = createRenderer();
+      const outputs = [];
+      try {
+        for (const variant of variants) {
+          renderer.setSize(width, height, preset.width, preset.height);
+          renderer.applySpec(variant);
+          // Give WebGL one animation frame to paint, otherwise the canvas
+          // copy below comes back black.
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const output = document.createElement('canvas');
+          output.width = width;
+          output.height = height;
+          const context = output.getContext('2d');
+          context.drawImage(renderer.background, 0, 0, width, height);
+          context.drawImage(renderer.text, 0, 0, width, height);
+          outputs.push(output);
+        }
+      } finally {
+        renderer.dispose();
+      }
+      return outputs;
+    }
+
+    /**
+     * Build the font shorthand for one segment.
+     * @param {Record<string, any>} layer - the text layer.
+     * @param {boolean} latin - whether the segment is a Latin run.
+     * @returns {string} the CSS font shorthand.
+     */
+    function fontFor(layer, latin) {
+      return `${layer.weight} ${layer.size}px ${latin ? LATIN_STACK : FONT_STACK}`;
+    }
+
+    /**
+     * Split one line into Latin and non-Latin runs.
+     * @param {string} text - the line.
+     * @returns {Array<[string, boolean]>} the runs with their Latin flag.
+     */
+    function segmentsOf(text) {
+      const parts = String(text).split(LATIN_RUN);
+      const runs = [];
+      parts.forEach((part, index) => {
+        if (part.length > 0) runs.push([part, index % 2 === 1]);
+      });
+      return runs;
+    }
+
+    /**
+     * Split one paragraph into wrapping tokens.
+     * @param {string} text - the paragraph.
+     * @returns {string[]} the tokens.
+     */
+    function tokenize(text) {
+      const tokens = [];
+      let buffer = '';
+      for (const character of text) {
+        if (CJK_CHAR.test(character)) {
+          if (buffer.length > 0) { tokens.push(buffer); buffer = ''; }
+          tokens.push(character);
+        } else {
+          buffer += character;
+        }
+      }
+      if (buffer.length > 0) tokens.push(buffer);
+      return tokens;
+    }
+
+    /**
+     * Measure the width of one line.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the text layer.
+     * @param {string} line - the line to measure.
+     * @returns {number} the width in pixels.
+     */
+    function measureLine(ctx, layer, line) {
+      let total = 0;
+      for (const [text, latin] of segmentsOf(line)) {
+        ctx.font = fontFor(layer, latin);
+        total += ctx.measureText(text).width;
+      }
+      return total;
+    }
+
+    /**
+     * Wrap one layer's text into lines.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the text layer.
+     * @param {number} width - the canvas width.
+     * @returns {string[]} the wrapped lines.
+     */
+    function wrapLines(ctx, layer, width) {
+      const limit = Math.max(40, width * layer.maxWidth);
+      const lines = [];
+      for (const paragraph of String(layer.text).split('\n')) {
+        if (paragraph.length === 0) { lines.push(''); continue; }
+        let current = '';
+        for (const token of tokenize(paragraph)) {
+          const candidate = current + token;
+          if (current.length > 0 && measureLine(ctx, layer, candidate) > limit) {
+            lines.push(current);
+            current = token;
+          } else {
+            current = candidate;
+          }
+        }
+        lines.push(current);
+      }
+      return lines;
+    }
+
+    /**
+     * Draw one layer's text.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the text layer.
+     * @param {string[]} lines - the wrapped lines.
+     * @param {number} width - the canvas width.
+     * @param {number} height - the canvas height.
+     * @returns {{ x: number, y: number, width: number, height: number }} the drawn bounds.
+     */
+    function drawLayer(ctx, layer, lines, width, height) {
+      const lineHeight = layer.size * layer.lineHeight;
+      const blockHeight = lines.length * lineHeight;
+      const top = layer.y * height - blockHeight / 2;
+      let baseline = top + layer.size * 0.78;
+      let minX = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      ctx.save();
+      ctx.textBaseline = 'alphabetic';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = layer.size * 0.16;
+      ctx.shadowOffsetY = layer.size * 0.04;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing}px`;
+      for (const line of lines) {
+        const lineWidth = measureLine(ctx, layer, line);
+        let x = layer.align === 'left' ? width * (layer.x - layer.maxWidth / 2)
+          : layer.align === 'right' ? width * (layer.x + layer.maxWidth / 2) - lineWidth
+            : width * layer.x - lineWidth / 2;
+        const lineStart = x;
+        for (const [text, latin] of segmentsOf(line)) {
+          ctx.font = fontFor(layer, latin);
+          ctx.fillStyle = layer.color;
+          ctx.textAlign = 'left';
+          ctx.fillText(text, x, baseline);
+          x += ctx.measureText(text).width;
+        }
+        if (lineStart < minX) minX = lineStart;
+        if (x > maxX) maxX = x;
+        baseline += lineHeight;
+      }
+      ctx.restore();
+      const bottom = baseline - lineHeight + layer.size * 0.26;
+      const left = Number.isFinite(minX) ? minX : 0;
+      const right = Number.isFinite(maxX) ? maxX : left;
+      return {
+        x: left,
+        y: top,
+        width: Math.max(0, right - left),
+        height: Math.max(0, bottom - top),
+      };
+    }
+
+    /**
+     * Render the text layer of one specification.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} spec - the specification.
+     * @param {number} width - the canvas width.
+     * @param {number} height - the canvas height.
+     * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
+     */
+    function renderText(ctx, spec, width, height) {
+      ctx.clearRect(0, 0, width, height);
+      const layout = [];
+      for (const layer of spec.layers) {
+        if (!layer.text) continue;
+        const lines = wrapLines(ctx, layer, width);
+        const bounds = drawLayer(ctx, layer, lines, width, height);
+        layout.push({ id: layer.id, ...bounds });
+      }
+      return layout;
+    }
+
+    /**
+     * Create one renderer: a WebGL backdrop plus a Canvas 2D text layer.
+     * @returns {Record<string, any>} the renderer.
+     */
+    function createRenderer() {
+      const background = document.createElement('canvas');
+      const text = document.createElement('canvas');
+      background.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
+      text.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
+      let gl = null;
+      let program = null;
+      let locations = null;
+      let width = 0;
+      let height = 0;
+      let posterWidth = 0;
+      let posterHeight = 0;
+      let layout = [];
+      let spec = defaultSpec();
+      let raf = 0;
+      let aligned = 0;
+      let previous = 0;
+      let onScreen = true;
+      let running = true;
+      const loops = LOOP_PERIODS.map((period, index) => ({
+        period,
+        elapsed: 0,
+        radius: LOOP_RADII[index] * period / TWO_PI,
+      }));
+      const textContext = text.getContext('2d');
+
+      const compile = (type, source) => {
+        const shader = gl.createShader(type);
+        if (!shader) return null;
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          gl.deleteShader(shader);
+          return null;
+        }
+        return shader;
+      };
+
+      const initGl = () => {
+        gl = background.getContext('webgl2', {
+          alpha: true,
+          premultipliedAlpha: false,
+          antialias: false,
+          depth: false,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        });
+        if (!gl) return false;
+        const vertex = compile(gl.VERTEX_SHADER, VERTEX_SHADER);
+        const fragment = compile(gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+        if (!vertex || !fragment) return false;
+        program = gl.createProgram();
+        gl.attachShader(program, vertex);
+        gl.attachShader(program, fragment);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return false;
+        gl.useProgram(program);
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const position = gl.getAttribLocation(program, 'a_position');
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+        locations = {
+          resolution: gl.getUniformLocation(program, 'u_resolution'),
+          grainResolution: gl.getUniformLocation(program, 'u_grainResolution'),
+          lightCore: gl.getUniformLocation(program, 'u_lightCore'),
+          lightHalo: gl.getUniformLocation(program, 'u_lightHalo'),
+          scale: gl.getUniformLocation(program, 'u_scale'),
+          offset: gl.getUniformLocation(program, 'u_offset'),
+          grain: gl.getUniformLocation(program, 'u_grain'),
+          bloom: gl.getUniformLocation(program, 'u_bloomStrength'),
+          vignette: gl.getUniformLocation(program, 'u_vignette'),
+          loops: LOOP_PERIODS.map((_, index) => gl.getUniformLocation(program, `u_loop${index + 1}`)),
+          colors: COLOR_KEYS.map((key) => gl.getUniformLocation(program, `u_${key}`)),
+        };
+        return true;
+      };
+
+      const applyColors = () => {
+        if (!gl || !locations) return;
+        COLOR_KEYS.forEach((key, index) => {
+          const value = normalizeColor(spec.colors[key]) || DEFAULT_COLORS[key];
+          gl.uniform3f(
+            locations.colors[index],
+            parseInt(value.slice(1, 3), 16) / 255,
+            parseInt(value.slice(3, 5), 16) / 255,
+            parseInt(value.slice(5, 7), 16) / 255,
+          );
+        });
+      };
+
+      const applyTuning = () => {
+        if (!gl || !locations) return;
+        gl.uniform1f(locations.scale, spec.shader.scale);
+        gl.uniform2f(locations.offset, spec.shader.offsetX, spec.shader.offsetY);
+        gl.uniform1f(locations.grain, spec.shader.grain);
+        gl.uniform1f(locations.bloom, spec.shader.bloom);
+        gl.uniform1f(locations.vignette, spec.shader.vignette);
+        gl.uniform1f(locations.lightCore, spec.shader.lightCore);
+        gl.uniform1f(locations.lightHalo, spec.shader.lightHalo);
+      };
+
+      const advance = (delta) => {
+        loops.forEach((loop, index) => {
+          loop.elapsed = ((loop.elapsed + delta) % loop.period + loop.period) % loop.period;
+          const angle = loop.elapsed / loop.period * TWO_PI;
+          const sine = Math.sin(angle);
+          const cosine = Math.cos(angle);
+          gl.uniform2f(locations.loops[index], loop.radius * sine, loop.radius * (1 - cosine));
+        });
+      };
+
+      const drawFrame = () => {
+        if (!gl || !locations) return;
+        applyColors();
+        applyTuning();
+        gl.viewport(0, 0, width, height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      };
+
+      const onVisibility = () => {
+        if (!document.hidden && raf === 0) raf = requestAnimationFrame(tick);
+      };
+
+      const tick = (now) => {
+        raf = 0;
+        if (!running || !onScreen || document.hidden || width === 0 || height === 0) return;
+        if (aligned !== 0 && now - aligned < FRAME_INTERVAL) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        const delta = previous !== 0 ? 0.001 * Math.min(now - previous, 100) : 0;
+        aligned = aligned !== 0 ? now - ((now - aligned) % FRAME_INTERVAL) : now;
+        previous = now;
+        if (!spec.shader.paused) advance(delta * spec.shader.speed);
+        drawFrame();
+        raf = requestAnimationFrame(tick);
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        onScreen = entries.length > 0 ? entries[0].isIntersecting : true;
+        if (onScreen && raf === 0) raf = requestAnimationFrame(tick);
+      });
+
+      return {
+        background,
+        text,
+        /**
+         * Resize both layers. The backdrop renders at the given resolution;
+         * the text layer always renders at the poster's logical size, so the
+         * browser scales type exactly like the exported image does.
+         * @param {number} nextWidth - the backdrop width.
+         * @param {number} nextHeight - the backdrop height.
+         * @param {number} logicalWidth - the poster width in poster pixels.
+         * @param {number} logicalHeight - the poster height in poster pixels.
+         */
+        setSize(nextWidth, nextHeight, logicalWidth, logicalHeight) {
+          width = Math.max(1, Math.round(nextWidth));
+          height = Math.max(1, Math.round(nextHeight));
+          background.width = width;
+          background.height = height;
+          const logicalW = Math.max(1, Math.round(logicalWidth ?? width));
+          const logicalH = Math.max(1, Math.round(logicalHeight ?? height));
+          posterWidth = logicalW;
+          posterHeight = logicalH;
+          text.width = logicalW;
+          text.height = logicalH;
+          if (!gl) initGl();
+          if (gl && locations) {
+            gl.uniform2f(locations.resolution, width, height);
+            gl.uniform2f(locations.grainResolution, width, height);
+          }
+          layout = renderText(textContext, spec, logicalW, logicalH);
+          drawFrame();
+        },
+        /**
+         * Adopt one specification and repaint.
+         * @param {Record<string, any>} next - the specification.
+         */
+        applySpec(next) {
+          spec = next;
+          layout = renderText(textContext, spec, posterWidth || width, posterHeight || height);
+          drawFrame();
+        },
+        /**
+         * The bounds of every drawn text layer, in poster pixels.
+         * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
+         */
+        layout() {
+          return layout;
+        },
+        /** Start the animation loop and the visibility observer. */
+        start() {
+          if (!gl) initGl();
+          observer.observe(background);
+          document.addEventListener('visibilitychange', onVisibility);
+          raf = requestAnimationFrame(tick);
+        },
+        /** Stop the animation loop and release every resource. */
+        dispose() {
+          running = false;
+          if (raf !== 0) cancelAnimationFrame(raf);
+          observer.disconnect();
+          document.removeEventListener('visibilitychange', onVisibility);
+          if (gl) {
+            if (program) gl.deleteProgram(program);
+            const lose = gl.getExtension('WEBGL_lose_context');
+            if (lose) lose.loseContext();
+          }
+          gl = null;
+          program = null;
+          locations = null;
+        },
+      };
+    }
+
+    /**
+     * Render one specification to a PNG blob at full resolution.
+     * @param {Record<string, any>} spec - the specification.
+     * @returns {Promise<Blob | null>} the rendered image.
+     */
+    async function renderPng(spec) {
+      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      const renderer = createRenderer();
+      try {
+        renderer.setSize(preset.width, preset.height, preset.width, preset.height);
+        renderer.applySpec(spec);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        renderer.setSize(preset.width, preset.height, preset.width, preset.height);
+        const output = document.createElement('canvas');
+        output.width = preset.width;
+        output.height = preset.height;
+        const context = output.getContext('2d');
+        context.drawImage(renderer.background, 0, 0, preset.width, preset.height);
+        context.drawImage(renderer.text, 0, 0, preset.width, preset.height);
+        return await new Promise((resolve) => output.toBlob(resolve, 'image/png'));
+      } finally {
+        renderer.dispose();
+      }
+    }
+
+    /**
+     * The poster canvas, mounted as a React component.
+     * @param {{ spec: Record<string, any>, width: number, height: number }} props - component props.
+     * @returns {React.ReactElement} the canvas element.
+     */
+    function PosterCanvas(props) {
+      const hostRef = React.useRef(null);
+      const rendererRef = React.useRef(null);
+      const preset = SIZES[props.spec.size] || SIZES['1080x1350'];
+
+      React.useEffect(() => {
+        const renderer = createRenderer();
+        rendererRef.current = renderer;
+        const host = hostRef.current;
+        if (host) {
+          host.appendChild(renderer.background);
+          host.appendChild(renderer.text);
+        }
+        renderer.setSize(props.width, props.height, preset.width, preset.height);
+        renderer.applySpec(props.spec);
+        renderer.start();
+        if (props.onLayout) props.onLayout(renderer.layout());
+        return () => {
+          renderer.dispose();
+          rendererRef.current = null;
+          if (host) host.innerHTML = '';
+        };
+      }, []);
+
+      React.useEffect(() => {
+        rendererRef.current?.applySpec(props.spec);
+        if (props.onLayout) props.onLayout(rendererRef.current?.layout() ?? []);
+      }, [props.spec]);
+
+      React.useEffect(() => {
+        rendererRef.current?.setSize(props.width, props.height, preset.width, preset.height);
+      }, [props.width, props.height, preset.width, preset.height]);
+
+      return h('div', {
+        ref: hostRef,
+        style: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden' },
+      });
+    }
+
+    /**
+     * A labelled range control.
+     * @param {{ label: string, value: number, min: number, max: number, step: number, onChange: (value: number) => void }} props - component props.
+     * @returns {React.ReactElement} the control element.
+     */
+    function Slider(props) {
+      return h('label', {
+        style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+      }, [
+        h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
+          h('span', { key: 'label' }, props.label),
+          h('span', { key: 'value', style: { color: 'var(--dsw-alias-label-secondary)', fontVariantNumeric: 'tabular-nums' } }, Math.round(props.value * 100) / 100),
+        ]),
+        h('input', {
+          key: 'range',
+          type: 'range',
+          min: props.min,
+          max: props.max,
+          step: props.step,
+          value: props.value,
+          onChange: (event) => props.onChange(Number(event.target.value)),
+          style: { width: '100%' },
+        }),
+      ]);
+    }
+
+    /**
+     * A segmented button group.
+     * @param {{ options: Array<{ value: string, label: string }>, value: string, onChange: (value: string) => void }} props - component props.
+     * @returns {React.ReactElement} the control element.
+     */
+    function Segmented(props) {
+      return h('div', {
+        style: {
+          display: 'inline-flex',
+          padding: 2,
+          gap: 2,
+          borderRadius: 7,
+          border: '1px solid var(--dsw-alias-border-l1)',
+          background: 'var(--dsw-alias-bg-layer-1)',
+          flex: '0 0 auto',
+        },
+      }, props.options.map((option) => h('button', {
+        key: option.value,
+        type: 'button',
+        onClick: () => props.onChange(option.value),
+        style: {
+          padding: '2px 10px',
+          borderRadius: 5,
+          fontSize: 11,
+          border: 'none',
+          cursor: 'pointer',
+          background: props.value === option.value ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
+          color: props.value === option.value ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+        },
+      }, option.label)));
+    }
+
+    /**
+     * The poster stage: the poster scaled to the space it has, with every
+     * text layer draggable to a new position.
+     * @param {{ spec: Record<string, any> }} props - component props.
+     * @returns {React.ReactElement} the stage element.
+     */
+    function PosterStage(props) {
+      const stageRef = React.useRef(null);
+      const posterRef = React.useRef(null);
+      const [box, setBox] = React.useState({ width: 0, height: 0 });
+      const [layout, setLayout] = React.useState([]);
+      const dragRef = React.useRef(null);
+
+      React.useEffect(() => {
+        const node = stageRef.current;
+        if (!node) return undefined;
+        const observer = new ResizeObserver((entries) => {
+          const rect = entries[0].contentRect;
+          setBox({ width: rect.width, height: rect.height });
+        });
+        observer.observe(node);
+        return () => observer.disconnect();
+      }, []);
+
+      const preset = SIZES[props.spec.size] || SIZES['1080x1350'];
+      const scale = box.width > 0 && box.height > 0
+        ? Math.min(box.width / preset.width, box.height / preset.height)
+        : 0;
+      const width = Math.max(1, Math.floor(preset.width * scale));
+      const height = Math.max(1, Math.floor(preset.height * scale));
+
+      const startDrag = (event, id) => {
+        event.preventDefault();
+        const poster = posterRef.current;
+        if (!poster) return;
+        const rect = poster.getBoundingClientRect();
+        const layer = store.spec.layers.find((entry) => entry.id === id);
+        if (!layer) return;
+        dragRef.current = {
+          id,
+          rect,
+          dx: event.clientX - rect.left - layer.x * rect.width,
+          dy: event.clientY - rect.top - layer.y * rect.height,
+        };
+        store.beginTransaction();
+        const move = (moveEvent) => {
+          const current = dragRef.current;
+          if (!current) return;
+          const x = (moveEvent.clientX - current.rect.left - current.dx) / current.rect.width;
+          const y = (moveEvent.clientY - current.rect.top - current.dy) / current.rect.height;
+          store.applySpec({
+            layers: store.spec.layers.map((entry) => (entry.id === current.id
+              ? { ...entry, x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) }
+              : entry)),
+          }, false, false);
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          dragRef.current = null;
+          store.commitTransaction();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      };
+
+      const handles = layout.map((entry) => {
+        const layer = store.spec.layers.find((item) => item.id === entry.id);
+        if (!layer) return null;
+        const left = (entry.x / preset.width) * width;
+        const top = (entry.y / preset.height) * height;
+        const boxWidth = Math.max((entry.width / preset.width) * width, 26);
+        const boxHeight = Math.max((entry.height / preset.height) * height, 22);
+        return h('div', {
+          key: entry.id,
+          title: layer.text,
+          onPointerDown: (event) => startDrag(event, entry.id),
+          style: {
+            position: 'absolute',
+            left,
+            top,
+            width: boxWidth,
+            height: boxHeight,
+            boxSizing: 'border-box',
+            cursor: 'move',
+            border: '1px dashed rgba(255,255,255,0.32)',
+            borderRadius: 4,
+            touchAction: 'none',
+          },
+        });
+      });
+
+      return h('div', {
+        ref: stageRef,
+        style: {
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 8,
+          background: 'var(--dsw-alias-bg-layer-1)',
+          overflow: 'hidden',
+        },
+      }, h('div', {
+        ref: posterRef,
+        style: {
+          position: 'relative',
+          width: `${width}px`,
+          height: `${height}px`,
+          borderRadius: 10,
+          overflow: 'hidden',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          touchAction: 'none',
+        },
+      }, [
+        h(PosterCanvas, { key: 'canvas', spec: props.spec, width, height, onLayout: setLayout }),
+        ...handles,
+      ]));
+    }
+
+    /**
+     * A number field with up and down buttons.
+     * @param {{ label: string, value: number, min: number, max: number, step: number, scale?: number, precision?: number, onChange: (value: number) => void }} props - component props.
+     * @returns {React.ReactElement} the control element.
+     */
+    function Stepper(props) {
+      const scale = props.scale ?? 1;
+      const precision = props.precision ?? 0;
+      const shown = (value) => Number((value * scale).toFixed(precision));
+      const emit = (value) => {
+        if (!Number.isFinite(value)) return;
+        props.onChange(Math.min(props.max, Math.max(props.min, value)));
+      };
+      return h('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 11,
+          color: 'var(--dsw-alias-label-tertiary)',
+          flex: props.stretch ? '1 1 0' : '0 0 auto',
+          minWidth: 0,
+        },
+      }, [
+        h('span', { key: 'label', style: { flex: '0 0 auto' } }, props.label),
+        // A plain number input: the browser's own up/down arrows (shown on
+        // hover and on keyboard arrows) are the adjuster, no extra buttons.
+        h('input', {
+          key: 'input',
+          type: 'number',
+          value: shown(props.value),
+          min: shown(props.min),
+          max: shown(props.max),
+          step: props.step * scale,
+          onChange: (event) => emit(Number(event.target.value) / scale),
+          style: {
+            width: props.stretch ? '100%' : 64,
+            flex: props.stretch ? '1 1 auto' : '0 0 auto',
+            textAlign: 'center',
+            padding: '3px 4px',
+            borderRadius: 6,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 12,
+            outline: 'none',
+            boxSizing: 'border-box',
+          },
+        }),
+      ]);
+    }
+
+    /**
+     * The poster studio.
+     * @param {{ embedded?: boolean }} [props] - renders inside the main panel when embedded.
+     * @returns {React.ReactElement | null} the panel element.
+     */
+    function PosterPanel(props) {
+      const embedded = Boolean(props && props.embedded);
+      const [spec, setSpec] = React.useState(store.spec);
+      const [tab, setTab] = React.useState('content');
+      const [mode, setMode] = React.useState('single');
+      const [fullscreen, setFullscreen] = React.useState(false);
+      const [status, setStatus] = React.useState('');
+      const [drafts, setDrafts] = React.useState({});
+      const [variants, setVariants] = React.useState([]);
+      const [library, setLibrary] = React.useState([]);
+      const [position, setPosition] = React.useState(() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('poster-studio-panel') || 'null');
+          if (stored && typeof stored.left === 'number' && typeof stored.top === 'number') {
+            return {
+              left: Math.max(0, Math.min(window.innerWidth - 320, stored.left)),
+              top: Math.max(0, Math.min(window.innerHeight - 120, stored.top)),
+            };
+          }
+        } catch { /* fall back to the docked corner */ }
+        return null;
+      });
+      const [size, setSize] = React.useState(() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('poster-studio-size') || 'null');
+          if (stored && typeof stored.width === 'number' && typeof stored.height === 'number') {
+            return {
+              width: Math.max(480, Math.min(window.innerWidth - 24, stored.width)),
+              height: Math.max(320, Math.min(window.innerHeight - 24, stored.height)),
+            };
+          }
+        } catch { /* fall back to the default */ }
+        return { width: 820, height: Math.min(Math.round(window.innerHeight * 0.94), 880) };
+      });
+      const panelRef = React.useRef(null);
+      const dragRef = React.useRef(null);
+      const resizeRef = React.useRef(null);
+
+      const startResize = (event, dir) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = panelRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const docked = !position;
+        const maxW = docked ? window.innerWidth - 24 : Math.max(240, window.innerWidth - rect.left - 12);
+        const maxH = docked ? window.innerHeight - 24 : Math.max(240, window.innerHeight - rect.top - 12);
+        resizeRef.current = { startX: event.clientX, startY: event.clientY, startW: rect.width, startH: rect.height, dir, docked, maxW, maxH };
+        const move = (moveEvent) => {
+          const drag = resizeRef.current;
+          if (!drag) return;
+          const dx = moveEvent.clientX - drag.startX;
+          const dy = moveEvent.clientY - drag.startY;
+          setSize(() => ({
+            width: drag.dir === 's' ? drag.startW : Math.max(480, Math.min(drag.maxW, drag.startW + dx)),
+            height: drag.dir === 'e' ? drag.startH : Math.max(320, Math.min(drag.maxH, drag.startH + (drag.docked ? -dy : dy))),
+          }));
+        };
+        const up = () => {
+          resizeRef.current = null;
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+          setSize((current) => {
+            try { localStorage.setItem('poster-studio-size', JSON.stringify(current)); } catch { /* storage is optional */ }
+            return current;
+          });
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      };
+
+      const startDrag = (event) => {
+        if (event.target.closest('button, select, input')) return;
+        const rect = panelRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        dragRef.current = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+        const move = (moveEvent) => {
+          if (!dragRef.current) return;
+          const left = Math.max(0, Math.min(window.innerWidth - 320, moveEvent.clientX - dragRef.current.dx));
+          const top = Math.max(0, Math.min(window.innerHeight - 120, moveEvent.clientY - dragRef.current.dy));
+          setPosition({ left, top });
+        };
+        const up = () => {
+          dragRef.current = null;
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+          setPosition((current) => {
+            if (current) {
+              try { localStorage.setItem('poster-studio-panel', JSON.stringify(current)); } catch { /* storage is optional */ }
+            }
+            return current;
+          });
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      };
+
+      React.useEffect(() => store.subscribe(() => setSpec({ ...store.spec })), []);
+
+      // Click anywhere on the sidebar row opens the float; the native
+      // capture listener runs before React handlers, so the shell never
+      // navigates the main column to the studio placeholder.
+      React.useEffect(() => {
+        const onClick = (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          if (!target) return;
+          const button = target.closest('button');
+          if (!button || !button.querySelector('[data-poster-icon]')) return;
+          event.stopPropagation();
+          event.preventDefault();
+          store.open = true;
+          store.emit();
+        };
+        document.addEventListener('click', onClick, true);
+        return () => document.removeEventListener('click', onClick, true);
+      }, []);
+
+      // Escape exits fullscreen first, then closes the floating studio.
+      React.useEffect(() => {
+        const onKey = (event) => {
+          if (event.key !== 'Escape' || embedded || !store.open) return;
+          // The Save As dialog forwards its Escape to the page when it
+          // closes; that must not also close the studio window.
+          if (store.pickerActive || Date.now() - store.lastPickerAt < 500) return;
+          if (fullscreen) { setFullscreen(false); return; }
+          store.open = false;
+          store.emit();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [embedded, fullscreen]);
+
+      React.useEffect(() => {
+        const timer = setInterval(() => { void store.pull(); }, 3000);
+        void store.pull();
+        return () => clearInterval(timer);
+      }, []);
+
+      React.useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+          try {
+            const response = await fetch('/poster-studio/exports', { headers: { accept: 'application/json' } });
+            if (!response.ok) return;
+            const entries = await response.json();
+            if (cancelled || !Array.isArray(entries)) return;
+            setLibrary(entries);
+          } catch (error) {
+            console.warn('poster-studio: the export library could not be read', error);
+          }
+        };
+        void load();
+        return () => { cancelled = true; };
+      }, [library.length]);
+
+      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+
+      const patchLayer = (id, changes) => {
+        store.applySpec({
+          layers: spec.layers.map((layer) => (layer.id === id ? { ...layer, ...changes } : layer)),
+        });
+      };
+
+      const exportPng = async () => {
+        setStatus(store.translate('export') + '…');
+        try {
+          const blob = await renderPng(store.spec);
+          if (!blob) throw new Error('the poster could not be rendered');
+          const suggested = `poster-${spec.size}.png`;
+          if (typeof window.showSaveFilePicker === 'function') {
+            // Native Save As dialog: the user picks the folder and file name.
+            store.pickerActive = true;
+            store.lastPickerAt = 0;
+            let handle;
+            try {
+              handle = await window.showSaveFilePicker({
+                suggestedName: suggested,
+                types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }],
+              });
+            } finally {
+              store.pickerActive = false;
+              store.lastPickerAt = Date.now();
+            }
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            setStatus(`${store.translate('saved')} ${handle.name}`);
+            return;
+          }
+          // Fallback for browsers without the File System Access API.
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = suggested;
+          link.click();
+          URL.revokeObjectURL(link.href);
+          setStatus(store.translate('exported'));
+        } catch (error) {
+          if (error && error.name === 'AbortError') { setStatus(''); return; }
+          console.warn('poster-studio: the poster could not be exported', error);
+          setStatus(String(error && error.message ? error.message : error));
+        }
+      };
+
+      const askAgent = async () => {
+        const sessionId = store.sessionId;
+        const client = store.ctx;
+        if (!sessionId || !client || !client.sessions) { setStatus(store.translate('askAi')); return; }
+        try {
+          const binding = client.sessions.binding(sessionId);
+          if (!binding) { setStatus(store.translate('askAi')); return; }
+          await binding.session.prompt([{
+            type: 'text',
+            text: '请为这张海报写文案：给 3 个候选标题和 1 句副标题，中文为主、可带一句英文，然后调用 poster_design 工具把选定的标题和副标题应用到海报上。',
+          }], 'queue');
+          setStatus(store.translate('askAi') + ' ✓');
+        } catch (error) {
+          console.warn('poster-studio: the agent could not be asked for copy', error);
+          setStatus(String(error && error.message ? error.message : error));
+        }
+      };
+
+      const makeVariants = async () => {
+        const list = buildVariants(store.spec, 6);
+        const preset = SIZES[store.spec.size] || SIZES['1080x1350'];
+        const width = 170;
+        const height = Math.round((width * preset.height) / preset.width);
+        const canvases = await renderVariants(list, width, height);
+        setVariants(canvases.map((canvas, index) => ({ canvas, spec: list[index] })));
+        setTab('variants');
+      };
+
+      const exportPreset = () => {
+        const blob = new Blob([JSON.stringify(store.spec, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `poster-preset-${store.spec.size}.json`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      };
+
+      const importPreset = (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            store.applySpec(JSON.parse(String(reader.result)));
+          } catch (error) {
+            console.warn('poster-studio: the preset could not be read', error);
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+      };
+
+      const fieldStyle = {
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '5px 8px',
+        borderRadius: 7,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        background: 'var(--dsw-alias-bg-layer-1)',
+        color: 'var(--dsw-alias-label-primary)',
+        fontFamily: FONT_STACK,
+        fontSize: 12,
+        outline: 'none',
+      };
+
+      const layerControls = spec.layers.map((layer) => h('div', {
+        key: layer.id,
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          padding: '9px 10px 11px',
+          borderRadius: 10,
+          background: 'var(--dsw-alias-bg-layer-2)',
+        },
+      }, [
+        h('div', {
+          key: 'head',
+          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+        }, [
+          h('span', {
+            key: 'label',
+            style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+          }, store.translate(LAYER_LABELS[layer.id] ?? layer.id)),
+          h('input', {
+            key: 'color',
+            type: 'color',
+            value: layer.color.slice(0, 7),
+            title: store.translate('palette'),
+            onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+            style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+          }),
+        ]),
+        h('input', {
+          key: 'text',
+          type: 'text',
+          value: drafts[layer.id] !== undefined ? drafts[layer.id] : layer.text,
+          placeholder: store.translate(LAYER_LABELS[layer.id] ?? layer.id),
+          onChange: (event) => setDrafts((current) => ({ ...current, [layer.id]: event.target.value })),
+          onBlur: (event) => {
+            setDrafts((current) => { const next = { ...current }; delete next[layer.id]; return next; });
+            patchLayer(layer.id, { text: event.target.value });
+          },
+          onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
+          style: fieldStyle,
+        }),
+        h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
+          h(Stepper, {
+            key: 'size',
+            label: store.translate('fontSize'),
+            value: layer.size,
+            min: 10,
+            max: 200,
+            step: 1,
+            onChange: (value) => patchLayer(layer.id, { size: value }),
+          }),
+          h(Segmented, {
+            key: 'align',
+            options: [{ value: 'left', label: '左' }, { value: 'center', label: '中' }, { value: 'right', label: '右' }],
+            value: layer.align,
+            onChange: (value) => patchLayer(layer.id, { align: value }),
+          }),
+        ]),
+        h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
+          h(Stepper, {
+            key: 'x',
+            label: 'X%',
+            stretch: true,
+            value: layer.x,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { x: value }),
+          }),
+          h(Stepper, {
+            key: 'y',
+            label: 'Y%',
+            stretch: true,
+            value: layer.y,
+            min: 0,
+            max: 1,
+            step: 0.01,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { y: value }),
+          }),
+        ]),
+      ]));
+
+      const actionStyle = {
+        padding: '5px 0',
+        borderRadius: 7,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        background: 'var(--dsw-alias-bg-layer-1)',
+        color: 'var(--dsw-alias-label-secondary)',
+        fontSize: 11,
+        cursor: 'pointer',
+        fontFamily: FONT_STACK,
+      };
+      const content = h('div', { key: 'pane-content', style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [
+        h('div', { key: 'actions', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 } }, [
+          h('button', {
+            key: 'ai',
+            type: 'button',
+            onClick: () => { void askAgent(); },
+            style: { ...actionStyle, border: '1px solid var(--dsw-alias-brand-primary)', color: 'var(--dsw-alias-brand-primary)' },
+          }, store.translate('askAi')),
+          h('button', {
+            key: 'variants',
+            type: 'button',
+            onClick: makeVariants,
+            style: actionStyle,
+          }, store.translate('variants')),
+          h('button', {
+            key: 'import',
+            type: 'button',
+            onClick: () => document.getElementById('poster-studio-import')?.click(),
+            style: actionStyle,
+          }, store.translate('importPreset')),
+          h('button', {
+            key: 'export',
+            type: 'button',
+            onClick: exportPreset,
+            style: actionStyle,
+          }, store.translate('exportPreset')),
+          h('input', {
+            key: 'file',
+            id: 'poster-studio-import',
+            type: 'file',
+            accept: 'application/json',
+            onChange: importPreset,
+            style: { display: 'none' },
+          }),
+        ]),
+        ...layerControls,
+      ]);
+
+      const palette = h('div', { key: 'pane-palette', style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [
+        h('div', { key: 'swatches', style: { display: 'flex', gap: 6 } }, COLOR_KEYS.map((key) => h('label', {
+          key,
+          title: key,
+          style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, fontSize: 10, color: 'var(--dsw-alias-label-secondary)' },
+        }, [
+          h('input', {
+            key: 'input',
+            type: 'color',
+            value: spec.colors[key],
+            onChange: (event) => store.applySpec({ colors: { [key]: event.target.value } }),
+            style: { width: 28, height: 28, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, background: 'transparent' },
+          }),
+          h('span', { key: 'name' }, key),
+        ]))),
+        h('div', { key: 'palettes', style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, PALETTES.map((item) => h('button', {
+          key: item.name,
+          type: 'button',
+          onClick: () => store.applySpec({ colors: { ...item.colors } }),
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 8px',
+            borderRadius: 7,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 11,
+            cursor: 'pointer',
+          },
+        }, [
+          h('span', {
+            key: 'dot',
+            style: { width: 10, height: 10, borderRadius: 3, background: item.colors.c3, border: `1px solid ${item.colors.c4}` },
+          }),
+          item.name,
+        ]))),
+      ]);
+
+      const backdrop = h('div', { key: 'pane-backdrop', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } }, [
+        h(Slider, { key: 'scale', label: 'scale', value: spec.shader.scale, min: 0.2, max: 4, step: 0.01, onChange: (value) => store.applySpec({ shader: { scale: value } }) }),
+        h(Slider, { key: 'speed', label: 'speed', value: spec.shader.speed, min: 0, max: 4, step: 0.05, onChange: (value) => store.applySpec({ shader: { speed: value } }) }),
+        h(Slider, { key: 'offsetX', label: 'offsetX', value: spec.shader.offsetX, min: -4, max: 4, step: 0.01, onChange: (value) => store.applySpec({ shader: { offsetX: value } }) }),
+        h(Slider, { key: 'offsetY', label: 'offsetY', value: spec.shader.offsetY, min: -4, max: 4, step: 0.01, onChange: (value) => store.applySpec({ shader: { offsetY: value } }) }),
+        h(Slider, { key: 'grain', label: 'grain', value: spec.shader.grain, min: 0, max: 0.05, step: 0.001, onChange: (value) => store.applySpec({ shader: { grain: value } }) }),
+        h(Slider, { key: 'bloom', label: 'bloom', value: spec.shader.bloom, min: 0, max: 1.5, step: 0.01, onChange: (value) => store.applySpec({ shader: { bloom: value } }) }),
+        h(Slider, { key: 'vignette', label: 'vignette', value: spec.shader.vignette, min: 0, max: 1, step: 0.01, onChange: (value) => store.applySpec({ shader: { vignette: value } }) }),
+        h(Slider, { key: 'lightCore', label: 'lightCore', value: spec.shader.lightCore, min: 0, max: 1, step: 0.01, onChange: (value) => store.applySpec({ shader: { lightCore: value } }) }),
+        h(Slider, { key: 'lightHalo', label: 'lightHalo', value: spec.shader.lightHalo, min: 0, max: 1, step: 0.01, onChange: (value) => store.applySpec({ shader: { lightHalo: value } }) }),
+        h('button', {
+          key: 'paused',
+          type: 'button',
+          onClick: () => store.applySpec({ shader: { paused: !spec.shader.paused } }),
+          style: {
+            padding: '4px 10px',
+            borderRadius: 7,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: spec.shader.paused ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 11,
+            cursor: 'pointer',
+          },
+        }, spec.shader.paused ? '▶' : '❚❚'),
+      ]);
+
+      const variantsView = variants.length === 0
+        ? h('div', { key: 'pane-variants-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, store.translate('variants'))
+        : h('div', { key: 'pane-variants', style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 } }, variants.map((variant, index) => h('button', {
+          key: `variant-${index}`,
+          type: 'button',
+          title: store.translate('applyVariant'),
+          onClick: () => { store.applySpec(variant.spec); setTab('content'); },
+          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer' },
+        }, h('canvas', {
+          ref: (node) => {
+            if (!node) return;
+            node.width = variant.canvas.width;
+            node.height = variant.canvas.height;
+            const context = node.getContext('2d');
+            context.drawImage(variant.canvas, 0, 0);
+          },
+          style: { width: '100%', display: 'block' },
+        }))));
+
+      const clearLibrary = async () => {
+        try {
+          const response = await fetch('/poster-studio/exports', { method: 'DELETE' });
+          if (!response.ok) return;
+          setLibrary([]);
+          setStatus(store.translate('libraryCleared'));
+        } catch (error) {
+          console.warn('poster-studio: the export library could not be cleared', error);
+        }
+      };
+
+      const libraryView = library.length === 0
+        ? h('div', { key: 'pane-library-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, store.translate('noExports'))
+        : h('div', { key: 'pane-library', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
+          h('button', {
+            key: 'clear',
+            type: 'button',
+            onClick: () => { void clearLibrary(); },
+            style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', fontFamily: FONT_STACK },
+          }, store.translate('clearLibrary')),
+          ...library.map((entry) => h('div', {
+          key: `${entry.name}-${library.indexOf(entry)}`,
+          style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--dsw-alias-label-secondary)' },
+        }, [
+          h('img', {
+            key: 'thumb',
+            src: `/poster-studio/exports?file=${encodeURIComponent(entry.name)}`,
+            alt: entry.name,
+            style: { width: 52, height: 65, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1)', flex: '0 0 auto', display: 'block', background: 'var(--dsw-alias-bg-layer-1)' },
+          }),
+          h('span', { key: 'name', style: { flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
+          entry.spec
+            ? h('button', {
+              key: 'apply',
+              type: 'button',
+              onClick: () => { store.applySpec(entry.spec); setTab('content'); },
+              style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer' },
+            }, store.translate('applyVariant'))
+            : null,
+          ]))]);
+
+      const tabs = [
+        { id: 'content', label: store.translate('content') },
+        { id: 'palette', label: store.translate('palette') },
+        { id: 'backdrop', label: store.translate('backdrop') },
+        { id: 'variants', label: store.translate('variantsTab') },
+        { id: 'library', label: store.translate('library') },
+      ];
+
+      const stage = mode === 'all'
+        ? h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, padding: 8 } },
+          SIZE_ORDER.map((key) => {
+            const item = SIZES[key];
+            const width = 150;
+            const height = Math.round((width * item.height) / item.width);
+            return h('button', {
+              key,
+              type: 'button',
+              onClick: () => { store.applySpec({ size: key }); setMode('single'); },
+              style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', height },
+            }, h(PosterCanvas, { spec: { ...spec, size: key }, width, height }));
+          }))
+        : h(PosterStage, { spec });
+
+      if (!embedded && !store.open) return null;
+
+      return h('div', {
+        ref: panelRef,
+        style: {
+          ...(fullscreen
+            ? { position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 2147483646 }
+            : embedded
+              ? { position: 'relative', width: '100%', height: '100%', minHeight: 0 }
+              : {
+                position: 'fixed',
+                ...(position ? { left: position.left, top: position.top } : { right: 16, bottom: 16 }),
+                width: size.width,
+                height: size.height,
+                maxWidth: 'calc(100vw - 24px)',
+                maxHeight: 'calc(100vh - 24px)',
+                zIndex: 2147483646,
+              }),
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          borderRadius: fullscreen || embedded ? 0 : 14,
+          border: fullscreen || embedded ? 'none' : '1px solid var(--dsw-alias-border-l1)',
+          background: fullscreen ? '#0a0a0c' : 'var(--dsw-alias-bg-overlay)',
+          boxShadow: fullscreen || embedded ? 'none' : '0 24px 64px rgba(0,0,0,0.38)',
+          pointerEvents: 'auto',
+          fontFamily: FONT_STACK,
+        },
+      }, [
+        h('div', {
+          key: 'header',
+          onMouseDown: embedded ? undefined : startDrag,
+          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderBottom: '1px solid var(--dsw-alias-border-l1)', cursor: embedded ? 'default' : 'move' },
+        }, [
+          h('select', {
+            key: 'size',
+            value: mode === 'all' ? 'all' : spec.size,
+            onChange: (event) => {
+              if (event.target.value === 'all') { setMode('all'); return; }
+              setMode('single');
+              store.applySpec({ size: event.target.value });
+            },
+            style: {
+              padding: '4px 8px',
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: 'var(--dsw-alias-bg-layer-1)',
+              color: 'var(--dsw-alias-label-primary)',
+              fontSize: 12,
+            },
+          }, [
+            h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
+            ...SIZE_ORDER.map((key) => h('option', { key, value: key }, `${SIZES[key].label} ${key}`)),
+          ]),
+          h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)' } }, `${preset.width}×${preset.height}`),
+          h('button', {
+            key: 'fullscreen',
+            type: 'button',
+            title: fullscreen ? store.translate('restore') : store.translate('fullscreen'),
+            'aria-label': fullscreen ? store.translate('restore') : store.translate('fullscreen'),
+            onClick: () => setFullscreen(!fullscreen),
+            style: {
+              marginLeft: embedded ? 'auto' : 0,
+              width: 26,
+              height: 26,
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: 'transparent',
+              color: 'var(--dsw-alias-label-secondary)',
+              cursor: 'pointer',
+              fontSize: 12,
+            },
+          }, fullscreen ? '⤡' : '⛶'),
+          embedded ? null : h('button', {
+            key: 'close',
+            type: 'button',
+            title: store.translate('close'),
+            'aria-label': store.translate('close'),
+            onClick: () => { store.open = false; store.emit(); },
+            style: {
+              marginLeft: 'auto',
+              width: 26,
+              height: 26,
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: 'transparent',
+              color: 'var(--dsw-alias-label-secondary)',
+              cursor: 'pointer',
+              fontSize: 13,
+            },
+          }, '✕'),
+        ]),
+        h('div', {
+          key: 'workbench',
+          style: { flex: '1 1 auto', minHeight: 0, display: 'flex', overflow: 'hidden' },
+        }, [
+          h('div', {
+            key: 'stage',
+            style: { flex: '1 1 auto', minWidth: 0, display: 'flex', overflow: 'hidden', background: 'var(--dsw-alias-bg-layer-1)' },
+          }, stage),
+          fullscreen ? null : h('div', {
+            key: 'controls',
+            style: {
+              flex: '0 0 300px',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              borderLeft: '1px solid var(--dsw-alias-border-l1)',
+              background: 'var(--dsw-alias-bg-layer-1)',
+            },
+          }, [
+            h('div', {
+              key: 'tabs',
+              style: {
+                display: 'flex',
+                gap: 2,
+                margin: '8px 10px 0',
+                padding: 2,
+                borderRadius: 8,
+                border: '1px solid var(--dsw-alias-border-l1)',
+                background: 'var(--dsw-alias-bg-layer-2)',
+              },
+            }, tabs.map((item) => h('button', {
+              key: item.id,
+              type: 'button',
+              onClick: () => setTab(item.id),
+              style: {
+                flex: '1 1 0',
+                minWidth: 0,
+                padding: '4px 0',
+                borderRadius: 6,
+                border: 'none',
+                background: tab === item.id ? 'var(--dsw-alias-bg-overlay)' : 'transparent',
+                color: tab === item.id ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+                fontSize: 11,
+                cursor: 'pointer',
+                fontFamily: FONT_STACK,
+                whiteSpace: 'nowrap',
+              },
+            }, item.label))),
+            h('div', {
+              key: 'body',
+              style: { flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: 10 },
+            }, tab === 'content' ? content
+              : tab === 'palette' ? palette
+                : tab === 'backdrop' ? backdrop
+                  : tab === 'variants' ? variantsView : libraryView),
+          ]),
+        ]),
+        fullscreen ? null : h('div', {
+          key: 'footer',
+          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderTop: '1px solid var(--dsw-alias-border-l1)' },
+        }, [
+          h('button', {
+            key: 'export',
+            type: 'button',
+            onClick: () => { void exportPng(); },
+            style: {
+              padding: '5px 12px',
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-brand-primary)',
+              background: 'transparent',
+              color: 'var(--dsw-alias-brand-primary)',
+              fontSize: 12,
+              cursor: 'pointer',
+            },
+          }, store.translate('export')),
+          h('button', {
+            key: 'undo',
+            type: 'button',
+            title: store.translate('undo'),
+            onClick: () => store.undo(),
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+          }, '↶'),
+          h('button', {
+            key: 'redo',
+            type: 'button',
+            title: store.translate('redo'),
+            onClick: () => store.redo(),
+            style: { padding: '5px 10px', borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+          }, '↷'),
+          h('button', {
+            key: 'reset',
+            type: 'button',
+            onClick: () => store.applySpec(defaultSpec()),
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+          }, store.translate('reset')),
+          h('span', {
+            key: 'status',
+            style: { marginLeft: 'auto', fontSize: 10, color: 'var(--dsw-alias-label-secondary)', maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+          }, status),
+        ]),
+        fullscreen || embedded ? null : h('div', { key: 'rez', style: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 } }, [
+          h('div', { key: 'e', onMouseDown: (event) => startResize(event, 'e'), style: { position: 'absolute', right: 0, top: 8, bottom: 8, width: 6, cursor: 'ew-resize', pointerEvents: 'auto' } }),
+          h('div', { key: 's', onMouseDown: (event) => startResize(event, 's'), style: { position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize', pointerEvents: 'auto' } }),
+          h('div', { key: 'se', onMouseDown: (event) => startResize(event, 'se'), style: { position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', pointerEvents: 'auto' } }),
+        ]),
+      ]);
+    }
+
+    /**
+     * The sidebar panel icon rendered by the shell's panel rail.
+     * @param {{ size?: number, active?: boolean }} props - owner-supplied icon props.
+     * @returns {React.ReactElement} the icon element.
+     */
+    function PosterSidebarIcon(props) {
+      const edge = props.size ?? 16;
+      return h('span', {
+        // Marker for the document-level click interceptor: clicks anywhere
+        // on this sidebar row must open the floating studio instead of
+        // navigating the main column.
+        'data-poster-icon': 'studio',
+        style: { display: 'inline-flex', alignItems: 'center' },
+      }, h('svg', {
+        width: edge,
+        height: edge,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        stroke: props.active ? 'var(--dsw-alias-brand-primary)' : 'currentColor',
+        strokeWidth: 1.6,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+      }, [
+        h('rect', { key: 'frame', x: 4.5, y: 3, width: 15, height: 18, rx: 2 }),
+        h('circle', { key: 'orb', cx: 12, cy: 9.5, r: 2.1 }),
+        h('path', { key: 'ridge', d: 'M7 17.5l3.2-4 2.3 2.8 1.9-2.3 2.6 3.5' }),
+      ]));
+    }
+
+    /**
+     * The inline poster card shown for the design tool call.
+     * @param {Record<string, any>} props - tool view props.
+     * @returns {React.ReactElement} the card element.
+     */
+    function PosterToolView(props) {
+      React.useEffect(() => {
+        const block = props && props.block;
+        const sources = block && typeof block === 'object'
+          ? [block.value, block.result, block.output, block.args, block.data]
+          : [];
+        for (const raw of sources) {
+          let value = raw;
+          if (typeof raw === 'function') {
+            try { value = raw(); } catch { value = undefined; }
+          }
+          if (value && typeof value === 'object' && value.size && value.layers) {
+            store.replaceSpec(value);
+            break;
+          }
+        }
+        const sessionId = props.posterSessionId ?? props.sessionId;
+        if (sessionId !== undefined) store.sessionId = sessionId;
+      });
+
+      const spec = store.spec;
+      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      const width = 420;
+      const height = Math.round((width * preset.height) / preset.width);
+      const shown = Math.min(height, 300);
+
+      return h('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          background: 'var(--dsw-alias-bg-layer-1)',
+          fontFamily: FONT_STACK,
+        },
+      }, [
+        h('div', {
+          key: 'preview',
+          style: { position: 'relative', width: '100%', height: shown, overflow: 'hidden' },
+        }, h(PosterCanvas, { spec, width, height: shown })),
+        h('div', {
+          key: 'actions',
+          style: { display: 'flex', justifyContent: 'flex-end', padding: '0 10px 10px' },
+        }, h('button', {
+          type: 'button',
+          onClick: () => {
+            store.sessionId = props.posterSessionId ?? props.sessionId;
+            store.open = true;
+            store.emit();
+          },
+          style: {
+            padding: '4px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontFamily: FONT_STACK,
+            fontSize: 12,
+            cursor: 'pointer',
+          },
+        }, store.translate('openTitle'))),
+      ]);
+    }
+
+    /** Required client services. */
+    const inject = ['slots', 'locale', 'sessions'];
+
+    /**
+     * Register the studio dictionaries for every language the UI offers.
+     * @param {unknown} ctx - client context.
+     * @param {Set<string>} registered - locales that already carry a dictionary.
+     * @param {Array<() => void>} disposers - collects the registration disposers.
+     */
+    function registerDictionaries(ctx, registered, disposers) {
+      const snapshot = ctx.locale.getSnapshot();
+      for (const definition of snapshot.locales) {
+        const id = String(definition.id);
+        if (registered.has(id)) continue;
+        const dictionary = id.toLowerCase().startsWith('zh') ? DICTIONARIES.zh : DICTIONARIES.en;
+        try {
+          const dispose = ctx.locale.register('poster-studio', id, dictionary);
+          if (typeof dispose === 'function') disposers.push(dispose);
+          registered.add(id);
+        } catch { /* this locale id is not a usable tag for the dictionary registry */ }
+      }
+    }
+
+    /**
+     * Register the studio surfaces.
+     * @param {unknown} ctx - client context.
+     */
+    function apply(ctx) {
+      store.ctx = ctx;
+      store.remote = true;
+      ctx.effect(() => {
+        const fontFace = document.createElement('style');
+        fontFace.textContent = FONT_FACE_CSS;
+        document.head.appendChild(fontFace);
+        return () => fontFace.remove();
+      });
+      const registered = new Set();
+      ctx.effect(() => {
+        const disposers = [];
+        registerDictionaries(ctx, registered, disposers);
+        ctx.on('locale/change', () => registerDictionaries(ctx, registered, disposers));
+        return () => {
+          for (const dispose of disposers) {
+            try { dispose(); } catch { /* the registry may already be gone */ }
+          }
+        };
+      });
+      try {
+        const bound = ctx.locale.bind('poster-studio');
+        store.translate = (key) => {
+          const value = bound(key);
+          if (value !== key) return value;
+          const active = String(ctx.locale.getSnapshot().active || '').toLowerCase();
+          const dictionary = active.startsWith('zh') ? DICTIONARIES.zh : DICTIONARIES.en;
+          return dictionary[key] ?? value;
+        };
+      } catch {
+        store.translate = (key) => DICTIONARIES.en[key] ?? key;
+      }
+
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+        name: 'shell.overlay',
+        id: 'poster-studio',
+        order: 40,
+      }, (props) => {
+        // The shell renders its overlay layer below the app chrome, so the
+        // studio is portalled to the page root to sit above everything.
+        if (ReactDOM && typeof document !== 'undefined' && document.body) {
+          return ReactDOM.createPortal(h(PosterPanel, props), document.body);
+        }
+        return h(PosterPanel, props);
+      }));
+
+      // Invisible per-session binder: keeps store.sessionId pointing at the
+      // live conversation so the studio can queue agent prompts. It renders
+      // nothing; the visible entry lives in the sidebar.
+      ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
+        name: 'conversation.input.overlay',
+        id: 'poster-studio-session-bind',
+        inject: (sessionId) => ({ posterSessionId: sessionId }),
+      }, (props) => {
+        React.useEffect(() => {
+          store.sessionId = props.posterSessionId ?? props.sessionId;
+        }, [props.posterSessionId, props.sessionId]);
+        return null;
+      }));
+
+      ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+        name: 'sidebar.panellist',
+        id: 'poster-studio',
+        order: 12,
+        label: () => store.translate('studio'),
+      }, PosterSidebarIcon));
+
+      // The sidebar row addresses a main panel; this placeholder exists so
+      // the row renders. Clicks are intercepted to open the float instead;
+      // if navigation ever happens, the column shows a hint, not a blank.
+      ctx.slots.inject('main', () => ctx.slots.register({
+        name: 'main',
+        key: 'poster-studio',
+      }, () => {
+        React.useEffect(() => { store.open = true; store.emit(); }, []);
+        return h('div', {
+          style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', fontFamily: FONT_STACK, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' },
+        }, [
+          h('div', { key: 'hint' }, store.translate('studioFloatHint')),
+          h('button', {
+            key: 'open',
+            type: 'button',
+            onClick: () => { store.open = true; store.emit(); },
+            style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
+          }, store.translate('openTitle')),
+        ]);
+      }));
+
+      ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+        name: 'tool.call.toolview',
+        key: 'poster_design',
+        inject: (sessionId) => ({ posterSessionId: sessionId }),
+      }, PosterToolView));
+    }
+
+    return { inject, apply };
+  },
+});

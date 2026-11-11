@@ -1,0 +1,44 @@
+Poster Studio (@local/dsh-poster-studio)
+=========================================
+
+Icon
+----
+icon.svg is original artwork created for this plugin.
+
+Bundled web fonts
+-----------------
+The client artifact inlines the following web fonts from the official
+DeepSeek Harness page (www.deepseek.com/harness), so the poster renders
+offline and inside the Harness Web UI.
+
+  DM Sans — weights 400, 500, 700
+    assets/dm-sans-400.woff2, assets/dm-sans-500.woff2, assets/dm-sans-700.woff2
+    Copyright 2018 The DM Sans Project Authors
+    Licensed under the SIL Open Font License, Version 1.1
+    https://openfontlicense.org
+
+  Montserrat — weight 500
+    assets/montserrat-500.woff2
+    Copyright 2011 The Montserrat Project Authors
+    Licensed under the SIL Open Font License, Version 1.1
+    https://openfontlicense.org
+
+Both families are redistributed unmodified under the SIL Open Font License,
+Version 1.1. The full licence text is available at
+https://openfontlicense.org/open-font-license-official-text/
+
+Shader backdrop
+---------------
+The WebGL2 fragment and vertex shaders in client.js are adapted from the
+DeepSeek Harness page backdrop (www.deepseek.com/harness). The five colour
+constants of that page, and its scale, offset, grain, bloom, vignette and
+light values, were changed into uniforms so the studio can repaint and
+retune the backdrop; the rest of the shader is unchanged.
+
+Runtime data
+------------
+The current poster design is written to
+  <DSH_HOME>/poster-studio/spec.json
+and rendered images are written to
+  <DSH_HOME>/poster-studio/exports/
+Both live under the DSH home directory and hold nothing but poster data.

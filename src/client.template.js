@@ -1205,7 +1205,11 @@ void main(){
       const repaint = () => {
         layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint, loadedFonts);
         drawFrame();
+        if (layoutChange) layoutChange();
       };
+
+      /** Listener notified after repaints recompute the text layout. */
+      let layoutChange = null;
 
       const onVisibility = () => {
         if (!document.hidden && raf === 0) raf = requestAnimationFrame(tick);
@@ -1277,6 +1281,13 @@ void main(){
          */
         layout() {
           return layout;
+        },
+        /**
+         * Subscribe to layout recomputation after asynchronous repaints.
+         * @param {(() => void) | null} callback - the listener, or null to clear.
+         */
+        onLayoutChange(callback) {
+          layoutChange = callback;
         },
         /** Start the animation loop and the visibility observer. */
         start() {
@@ -1350,6 +1361,9 @@ void main(){
         renderer.setSize(props.width, props.height, preset.width, preset.height);
         renderer.applySpec(props.spec);
         renderer.start();
+        renderer.onLayoutChange(() => {
+          if (props.onLayout) props.onLayout(renderer.layout());
+        });
         if (props.onLayout) props.onLayout(renderer.layout());
         return () => {
           renderer.dispose();
@@ -1365,6 +1379,7 @@ void main(){
 
       React.useEffect(() => {
         rendererRef.current?.setSize(props.width, props.height, preset.width, preset.height);
+        if (props.onLayout) props.onLayout(rendererRef.current?.layout() ?? []);
       }, [props.width, props.height, preset.width, preset.height]);
 
       return h('div', {

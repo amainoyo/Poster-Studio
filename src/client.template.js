@@ -22,6 +22,71 @@ window.__ModuleLoader__.load({
 
     const LATIN_STACK = '"PosterGrotesk", ' + FONT_STACK;
 
+    // Online font extensions, lazy-loaded through the Google Fonts mirror
+    // (fonts.loli.net); the offline fallback chain is the built-in stack.
+    const FONT_OPTIONS = {
+      'noto-sans-sc': { css: '"Noto Sans SC"', label: '思源黑体', url: 'https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@100..900&display=swap' },
+      'noto-serif-sc': { css: '"Noto Serif SC"', label: '思源宋体', url: 'https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@200..900&display=swap' },
+      'zcool-xiaowei': { css: '"ZCOOL XiaoWei"', label: '站酷小薇', url: 'https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap' },
+      'zcool-huangyou': { css: '"ZCOOL QingKe HuangYou"', label: '站酷黄油', url: 'https://fonts.loli.net/css2?family=ZCOOL+QingKe+HuangYou&display=swap' },
+      'ma-shan-zheng': { css: '"Ma Shan Zheng"', label: '毛笔楷书', url: 'https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap' },
+      'playfair': { css: '"Playfair Display"', label: 'Playfair 衬线', url: 'https://fonts.loli.net/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap' },
+    };
+
+    /** Stylesheet links of the online fonts, keyed by font id. */
+    const onlineFontLinks = new Map();
+
+    /**
+     * Start loading one layer's online font and report when glyphs are ready.
+     * @param {Record<string, any>} layer - the layer.
+     * @param {() => void} [onReady] - repaint hook while the sheet is still loading.
+     * @returns {Promise<void> | null} the glyph download, if it started.
+     */
+    function ensureOnlineFont(layer, onReady) {
+      const option = FONT_OPTIONS[layer.font];
+      if (!option) return null;
+      let entry = onlineFontLinks.get(layer.font);
+      if (!entry) {
+        entry = { ready: false, waiters: new Set() };
+        entry.link = document.createElement('link');
+        entry.link.rel = 'stylesheet';
+        entry.link.href = option.url;
+        entry.link.addEventListener('load', () => {
+          entry.ready = true;
+          for (const waiter of entry.waiters) waiter();
+          entry.waiters.clear();
+        }, { once: true });
+        onlineFontLinks.set(layer.font, entry);
+        document.head.appendChild(entry.link);
+      }
+      if (!entry.ready) {
+        if (onReady) entry.waiters.add(onReady);
+        return null;
+      }
+      if (!layer.text) return null;
+      const fontSpec = `${layer.italic ? 'italic ' : ''}${layer.weight} ${layer.size}px ${option.css}`;
+      return Promise.resolve(document.fonts.load(fontSpec, String(layer.text)))
+        .then(() => undefined, () => undefined);
+    }
+
+    /**
+     * Wait until the online fonts of a specification can be drawn.
+     * @param {Record<string, any>} spec - the specification.
+     * @returns {Promise<void>} resolves when ready or after a short grace.
+     */
+    function preloadSpecFonts(spec) {
+      const waits = [];
+      for (const layer of spec.layers ?? []) {
+        if (!FONT_OPTIONS[layer.font] || !layer.text) continue;
+        waits.push(new Promise((resolve) => {
+          const pending = ensureOnlineFont(layer, resolve);
+          if (pending) pending.then(resolve);
+          setTimeout(resolve, 8000);
+        }));
+      }
+      return Promise.all(waits).then(() => undefined);
+    }
+
     // ---------------------------------------------------------------------
     // Canvas presets.
     // ---------------------------------------------------------------------
@@ -215,6 +280,8 @@ void main(){
         clearLibrary: 'Clear library',
         libraryCleared: 'Export library cleared',
         weight: 'Weight',
+        font: 'Font',
+        fontDefault: 'Default',
         italic: 'Italic',
         underline: 'Underline',
         letterSpacing: 'Spacing',
@@ -275,6 +342,8 @@ void main(){
         clearLibrary: '清空图库',
         libraryCleared: '图库已清空',
         weight: '字重',
+        font: '字体',
+        fontDefault: '默认（官方）',
         italic: '斜体',
         underline: '下划线',
         letterSpacing: '字距',
@@ -406,6 +475,7 @@ void main(){
           if (textColor !== undefined) layer.textColor = textColor;
           if (typeof entry.italic === 'boolean') layer.italic = entry.italic;
           if (typeof entry.underline === 'boolean') layer.underline = entry.underline;
+          if (typeof entry.font === 'string') layer.font = entry.font;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
           if (merged.length >= 12) break;
@@ -630,7 +700,10 @@ void main(){
      */
     async function renderVariants(variants, width, height) {
       const preset = SIZES[variants[0]?.size] || SIZES['1080x1350'];
-      await Promise.all(variants.map((variant) => preloadSpecImages(variant)));
+      await Promise.all([
+        ...variants.map((variant) => preloadSpecImages(variant)),
+        ...variants.map((variant) => preloadSpecFonts(variant)),
+      ]);
       const renderer = createRenderer();
       const outputs = [];
       try {
@@ -661,7 +734,9 @@ void main(){
      * @returns {string} the CSS font shorthand.
      */
     function fontFor(layer, latin) {
-      return `${layer.italic ? 'italic ' : ''}${layer.weight} ${layer.size}px ${latin ? LATIN_STACK : FONT_STACK}`;
+      const base = latin ? LATIN_STACK : FONT_STACK;
+      const option = FONT_OPTIONS[layer.font];
+      return `${layer.italic ? 'italic ' : ''}${layer.weight} ${layer.size}px ${option ? `${option.css}, ${base}` : base}`;
     }
 
     /**
@@ -886,10 +961,18 @@ void main(){
      * @param {() => void} [onImageReady] - repaint hook for late images.
      * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
      */
-    function renderText(ctx, spec, width, height, onImageReady) {
+    function renderText(ctx, spec, width, height, onImageReady, loadedFonts) {
       ctx.clearRect(0, 0, width, height);
       const layout = [];
+      const fontState = loadedFonts ?? new Set();
       for (const layer of spec.layers) {
+        if (layer.text && FONT_OPTIONS[layer.font] && onImageReady && !fontState.has(layer.font)) {
+          const pending = ensureOnlineFont(layer, onImageReady);
+          if (pending) {
+            fontState.add(layer.font);
+            pending.then(onImageReady);
+          }
+        }
         if (layer.kind === 'image') {
           const image = cachedImage(layer.src, onImageReady);
           if (!image) continue;
@@ -990,6 +1073,7 @@ void main(){
         radius: LOOP_RADII[index] * period / TWO_PI,
       }));
       const textContext = text.getContext('2d');
+      const loadedFonts = new Set();
 
       const compile = (type, source) => {
         const shader = gl.createShader(type);
@@ -1087,7 +1171,7 @@ void main(){
       };
 
       const repaint = () => {
-        layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint);
+        layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint, loadedFonts);
         drawFrame();
       };
 
@@ -1143,7 +1227,7 @@ void main(){
             gl.uniform2f(locations.resolution, width, height);
             gl.uniform2f(locations.grainResolution, width, height);
           }
-          layout = renderText(textContext, spec, logicalW, logicalH, repaint);
+          layout = renderText(textContext, spec, logicalW, logicalH, repaint, loadedFonts);
           drawFrame();
         },
         /**
@@ -1152,7 +1236,7 @@ void main(){
          */
         applySpec(next) {
           spec = next;
-          layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint);
+          layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint, loadedFonts);
           drawFrame();
         },
         /**
@@ -1194,7 +1278,7 @@ void main(){
      */
     async function renderPng(spec) {
       const preset = SIZES[spec.size] || SIZES['1080x1350'];
-      await preloadSpecImages(spec);
+      await Promise.all([preloadSpecImages(spec), preloadSpecFonts(spec)]);
       const renderer = createRenderer();
       try {
         renderer.setSize(preset.width, preset.height, preset.width, preset.height);
@@ -1973,6 +2057,18 @@ void main(){
               onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
               style: fieldStyle,
             }),
+            h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+              h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
+              h('select', {
+                key: 'select',
+                value: layer.font ?? '',
+                onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
+                style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+              }, [
+                h('option', { key: '', value: '' }, store.translate('fontDefault')),
+                ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
+              ]),
+            ]),
             h('div', { key: 'row', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 200, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
             ]),
@@ -2181,6 +2277,18 @@ void main(){
             precision: 0,
             onChange: (value) => patchLayer(layer.id, { y: value }),
           }),
+        ]),
+        h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+          h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
+          h('select', {
+            key: 'select',
+            value: layer.font ?? '',
+            onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
+            style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+          }, [
+            h('option', { key: '', value: '' }, store.translate('fontDefault')),
+            ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
+          ]),
         ]),
         h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
           h('label', {

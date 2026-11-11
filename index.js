@@ -137,6 +137,11 @@ function clamp(value, min, max, fallback) {
 }
 
 /**
+ * Layer font ids accepted by the studio (client maps them to web fonts).
+ */
+const FONT_KEYS = ['', 'noto-sans-sc', 'noto-serif-sc', 'zcool-xiaowei', 'zcool-huangyou', 'ma-shan-zheng', 'playfair'];
+
+/**
  * Fallback used for layers whose id is not one of the three defaults.
  */
 const GENERIC_LAYER = {
@@ -171,6 +176,9 @@ function normalizeLayer(value, fallback) {
       : fallback.weight,
     italic: typeof source.italic === 'boolean' ? source.italic : Boolean(fallback.italic),
     underline: typeof source.underline === 'boolean' ? source.underline : Boolean(fallback.underline),
+    font: FONT_KEYS.includes(source.font)
+      ? source.font
+      : (FONT_KEYS.includes(fallback.font) ? fallback.font : ''),
     align,
     x: clamp(source.x, 0, 1, fallback.x),
     y: clamp(source.y, 0, 1, fallback.y),
@@ -636,6 +644,7 @@ export function apply(ctx, config = {}) {
                   weight: { type: 'number' },
                   italic: { type: 'boolean' },
                   underline: { type: 'boolean' },
+                  font: { type: 'string', enum: ['noto-sans-sc', 'noto-serif-sc', 'zcool-xiaowei', 'zcool-huangyou', 'ma-shan-zheng', 'playfair'] },
                   align: { type: 'string' },
                   x: { type: 'number' },
                   y: { type: 'number' },

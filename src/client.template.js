@@ -362,8 +362,8 @@ void main(){
       },
       zh: {
         open: '海报',
-        openTitle: '打开海报工作台',
-        studio: '海报工作台',
+        openTitle: '打开海报创作',
+        studio: '海报创作',
         saved: '已保存',
         clearLibrary: '清空图库',
         libraryCleared: '图库已清空',
@@ -396,7 +396,7 @@ void main(){
         badgeText: '角标文字',
         textColor: '文字颜色',
         bgColor: '背景色',
-        studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
+        studioFloatHint: '海报创作以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
         reset: '重置',
@@ -1631,6 +1631,7 @@ void main(){
       const [mode, setMode] = React.useState('single');
       const [fullscreen, setFullscreen] = React.useState(false);
       const [customSize, setCustomSize] = React.useState(null);
+      const [collapsedIds, setCollapsedIds] = React.useState([]);
       const [status, setStatus] = React.useState('');
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
@@ -2060,38 +2061,66 @@ void main(){
         });
       };
 
+      const toggleCollapse = (id) => setCollapsedIds((current) => (current.includes(id)
+        ? current.filter((entry) => entry !== id)
+        : [...current, id]));
+
+      /**
+       * The collapsible header shared by every layer card.
+       * @param {Record<string, any>} layer - the layer.
+       * @param {number} index - the layer index.
+       * @param {any[]} colorInputs - the colour swatch inputs for this kind.
+       * @returns {any} the header element.
+       */
+      const layerHead = (layer, index, colorInputs) => h('div', {
+        key: 'head',
+        onClick: () => toggleCollapse(layer.id),
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' },
+      }, [
+        h('span', {
+          key: 'label',
+          style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+        }, [
+          h('span', {
+            key: 'chev',
+            style: { width: 10, fontSize: 8, color: 'var(--dsw-alias-label-tertiary)' },
+          }, collapsedIds.includes(layer.id) ? '▶' : '▼'),
+          layerLabel(layer, index),
+        ]),
+        h('div', {
+          key: 'actions',
+          onClick: (event) => event.stopPropagation(),
+          style: { display: 'flex', alignItems: 'center', gap: 6 },
+        }, [
+          ...layerMoveButtons(layer, index),
+          ...colorInputs,
+          spec.layers.length > 1 ? layerRemoveButton(layer) : null,
+        ]),
+      ]);
+
       const layerControls = spec.layers.map((layer, index) => {
+        const collapsed = collapsedIds.includes(layer.id);
         if (layer.kind === 'badge') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
-            h('div', {
-              key: 'head',
-              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-            }, [
-              h('span', {
-                key: 'label',
-                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
-              }, layerLabel(layer, index)),
-              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-                ...layerMoveButtons(layer, index),
-                h('input', {
-                  key: 'textColor',
-                  type: 'color',
-                  value: normalizeColor(layer.textColor) || '#141414',
-                  title: store.translate('textColor'),
-                  onChange: (event) => patchLayer(layer.id, { textColor: event.target.value }),
-                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-                }),
-                h('input', {
-                  key: 'color',
-                  type: 'color',
-                  value: (normalizeColor(layer.color) || '#ffffff').slice(0, 7),
-                  title: store.translate('bgColor'),
-                  onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-                }),
-                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
-              ]),
+            layerHead(layer, index, [
+              h('input', {
+                key: 'textColor',
+                type: 'color',
+                value: normalizeColor(layer.textColor) || '#141414',
+                title: store.translate('textColor'),
+                onChange: (event) => patchLayer(layer.id, { textColor: event.target.value }),
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+              }),
+              h('input', {
+                key: 'color',
+                type: 'color',
+                value: (normalizeColor(layer.color) || '#ffffff').slice(0, 7),
+                title: store.translate('bgColor'),
+                onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+              }),
             ]),
+            ...(collapsed ? [] : [
             h('input', {
               key: 'text',
               type: 'text',
@@ -2124,31 +2153,22 @@ void main(){
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
               h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
             ]),
+            ]),
           ]);
         }
         if (layer.kind === 'qr') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
-            h('div', {
-              key: 'head',
-              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-            }, [
-              h('span', {
-                key: 'label',
-                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
-              }, layerLabel(layer, index)),
-              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-                ...layerMoveButtons(layer, index),
-                h('input', {
-                  key: 'color',
-                  type: 'color',
-                  value: normalizeColor(layer.color) || '#000000',
-                  title: store.translate('qrColor'),
-                  onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-                  style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-                }),
-                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
-              ]),
+            layerHead(layer, index, [
+              h('input', {
+                key: 'color',
+                type: 'color',
+                value: normalizeColor(layer.color) || '#000000',
+                title: store.translate('qrColor'),
+                onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+              }),
             ]),
+            ...(collapsed ? [] : [
             h('input', {
               key: 'value',
               type: 'text',
@@ -2180,23 +2200,13 @@ void main(){
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
               h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
             ]),
+            ]),
           ]);
         }
         if (layer.kind === 'image') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
-            h('div', {
-              key: 'head',
-              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-            }, [
-              h('span', {
-                key: 'label',
-                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
-              }, layerLabel(layer, index)),
-              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-                ...layerMoveButtons(layer, index),
-                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
-              ]),
-            ]),
+            layerHead(layer, index, []),
+            ...(collapsed ? [] : [
             h('div', { key: 'thumbRow', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
               h('img', {
                 key: 'preview',
@@ -2243,22 +2253,14 @@ void main(){
                 onChange: (value) => patchLayer(layer.id, { opacity: value }),
               }),
             ]),
+            ]),
           ]);
         }
         return h('div', {
           key: layer.id,
           style: layerCardStyle,
         }, [
-          h('div', {
-            key: 'head',
-            style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-          }, [
-            h('span', {
-              key: 'label',
-              style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
-          }, layerLabel(layer, index)),
-          h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-            ...layerMoveButtons(layer, index),
+          layerHead(layer, index, [
             h('input', {
               key: 'color',
               type: 'color',
@@ -2267,11 +2269,10 @@ void main(){
               onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
               style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
             }),
-            spec.layers.length > 1 ? layerRemoveButton(layer) : null,
           ]),
-        ]),
-        h('input', {
-          key: 'text',
+          ...(collapsed ? [] : [
+          h('input', {
+            key: 'text',
           type: 'text',
           value: drafts[layer.id] !== undefined ? drafts[layer.id] : layer.text,
           placeholder: layerLabel(layer, index),
@@ -2405,6 +2406,7 @@ void main(){
             precision: 0,
             onChange: (value) => patchLayer(layer.id, { y: value }),
           }),
+        ]),
         ]),
         ]);
       });

@@ -137,6 +137,23 @@ function clamp(value, min, max, fallback) {
 }
 
 /**
+ * Fallback used for layers whose id is not one of the three defaults.
+ */
+const GENERIC_LAYER = {
+  id: 'text',
+  text: '',
+  size: 28,
+  weight: 400,
+  align: 'center',
+  x: 0.5,
+  y: 0.68,
+  color: '#ffffff',
+  lineHeight: 1.4,
+  letterSpacing: 0,
+  maxWidth: 0.8,
+};
+
+/**
  * Normalize one layer.
  * @param {unknown} value - candidate layer.
  * @param {Record<string, unknown>} fallback - the layer to start from.
@@ -146,7 +163,7 @@ function normalizeLayer(value, fallback) {
   const source = value && typeof value === 'object' ? value : {};
   const align = source.align === 'left' || source.align === 'right' ? source.align : fallback.align;
   return {
-    id: fallback.id,
+    id: typeof source.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(source.id) ? source.id : fallback.id,
     text: typeof source.text === 'string' ? source.text : fallback.text,
     size: Math.round(clamp(source.size, 8, 400, fallback.size)),
     weight: [300, 400, 500, 600, 700].includes(source.weight) ? source.weight : fallback.weight,
@@ -170,12 +187,23 @@ function normalizeLayer(value, fallback) {
  */
 function normalizeSpec(value, base) {
   const source = value && typeof value === 'object' ? value : {};
-  const layers = base.layers.map((layer) => {
-    const candidate = Array.isArray(source.layers)
-      ? source.layers.find((entry) => entry && entry.id === layer.id)
+  const sourceLayers = Array.isArray(source.layers) ? source.layers : base.layers;
+  const seen = new Set();
+  const layers = [];
+  for (const entry of sourceLayers) {
+    if (!entry || typeof entry !== 'object') continue;
+    const baseLayer = typeof entry.id === 'string'
+      ? base.layers.find((candidate) => candidate.id === entry.id)
       : undefined;
-    return normalizeLayer(candidate, layer);
-  });
+    const layer = normalizeLayer(entry, baseLayer ?? GENERIC_LAYER);
+    if (seen.has(layer.id)) continue;
+    seen.add(layer.id);
+    layers.push(layer);
+    if (layers.length >= 12) break;
+  }
+  if (layers.length === 0) {
+    for (const layer of base.layers) layers.push(normalizeLayer(undefined, layer));
+  }
   const colors = { ...base.colors };
   if (source.colors && typeof source.colors === 'object') {
     for (const key of COLOR_KEYS) {
@@ -239,10 +267,13 @@ function applyPatch(base, patch) {
     if (friendly !== undefined && typeof patch[friendly] === 'string') layer.text = patch[friendly];
   }
   if (Array.isArray(patch.layers)) {
-    for (const layer of next.layers) {
-      const candidate = patch.layers.find((entry) => entry && entry.id === layer.id);
-      if (candidate) Object.assign(layer, normalizeLayer(candidate, layer));
+    for (const entry of patch.layers) {
+      if (!entry || typeof entry !== 'object') continue;
+      const existing = next.layers.find((layer) => entry.id !== undefined && layer.id === entry.id);
+      if (existing) Object.assign(existing, normalizeLayer(entry, existing));
+      else next.layers.push(normalizeLayer(entry, GENERIC_LAYER));
     }
+    if (next.layers.length > 12) next.layers.length = 12;
   }
   return next;
 }

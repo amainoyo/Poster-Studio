@@ -54,7 +54,7 @@ window.__ModuleLoader__.load({
       { name: '石墨', colors: { c1: '#08090b', c2: '#101216', c3: '#4a5058', c4: '#e8e8e6', c5: '#0b0c0e' } },
     ];
 
-    const LAYER_LABELS = { title: '标题', subtitle: '副标题', footer: '落款' };
+    const LAYER_LABELS = { title: 'layerTitle', subtitle: 'layerSubtitle', footer: 'layerFooter' };
 
     // ---------------------------------------------------------------------
     // Shader: the backdrop of the official DeepSeek Harness page, with the
@@ -218,6 +218,12 @@ void main(){
         letterSpacing: 'Spacing',
         lineHeight: 'Height',
         opacity: 'Opacity',
+        layerTitle: 'Title',
+        layerSubtitle: 'Subtitle',
+        layerFooter: 'Footer',
+        textLayer: 'Text',
+        addText: 'Add text',
+        removeLayer: 'Remove layer',
         studioFloatHint: 'The poster studio opens as a floating window.',
         close: 'Close',
         export: 'Export PNG',
@@ -255,6 +261,12 @@ void main(){
         letterSpacing: '字距',
         lineHeight: '行高',
         opacity: '透明度',
+        layerTitle: '标题',
+        layerSubtitle: '副标题',
+        layerFooter: '落款',
+        textLayer: '文本',
+        addText: '添加文本',
+        removeLayer: '删除该层',
         studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
@@ -333,16 +345,29 @@ void main(){
         }
       }
       if (Array.isArray(patch.layers)) {
-        for (const layer of next.layers) {
-          const candidate = patch.layers.find((entry) => entry && entry.id === layer.id);
-          if (candidate && typeof candidate === 'object') {
-            for (const key of Object.keys(layer)) {
-              const value = candidate[key];
-              if (typeof layer[key] === 'string' && typeof value === 'string') layer[key] = value;
-              else if (typeof layer[key] === 'number' && typeof value === 'number') layer[key] = value;
-            }
-          }
+        const GENERIC = { id: 'text', text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.68, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 };
+        const merged = [];
+        for (const entry of patch.layers) {
+          if (!entry || typeof entry !== 'object') continue;
+          const fallback = base.layers.find((candidate) => candidate.id === entry.id) ?? GENERIC;
+          const layer = { ...fallback };
+          if (typeof entry.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(entry.id)) layer.id = entry.id;
+          if (typeof entry.text === 'string') layer.text = entry.text;
+          if (typeof entry.size === 'number' && Number.isFinite(entry.size)) layer.size = Math.min(400, Math.max(8, Math.round(entry.size)));
+          if ([300, 400, 500, 600, 700].includes(entry.weight)) layer.weight = entry.weight;
+          if (entry.align === 'left' || entry.align === 'center' || entry.align === 'right') layer.align = entry.align;
+          if (typeof entry.x === 'number' && entry.x >= 0 && entry.x <= 1) layer.x = entry.x;
+          if (typeof entry.y === 'number' && entry.y >= 0 && entry.y <= 1) layer.y = entry.y;
+          const color = normalizeColor(entry.color);
+          if (color !== undefined) layer.color = color;
+          if (typeof entry.lineHeight === 'number' && entry.lineHeight >= 0.8 && entry.lineHeight <= 3) layer.lineHeight = entry.lineHeight;
+          if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
+          if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
+          if (merged.some((done) => done.id === layer.id)) continue;
+          merged.push(layer);
+          if (merged.length >= 12) break;
         }
+        if (merged.length > 0) next.layers = merged;
       }
       return next;
     }
@@ -1536,7 +1561,28 @@ void main(){
         outline: 'none',
       };
 
-      const layerControls = spec.layers.map((layer) => h('div', {
+      const layerLabel = (layer, index) => (LAYER_LABELS[layer.id]
+        ? store.translate(LAYER_LABELS[layer.id])
+        : `${store.translate('textLayer')} ${index + 1}`);
+
+      const addLayer = () => {
+        const used = new Set(spec.layers.map((layer) => layer.id));
+        let n = 1;
+        while (used.has(`text-${n}`)) n += 1;
+        store.applySpec({
+          layers: [
+            ...spec.layers,
+            { id: `text-${n}`, text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.68, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
+          ],
+        });
+      };
+
+      const removeLayer = (id) => {
+        if (spec.layers.length <= 1) return;
+        store.applySpec({ layers: spec.layers.filter((layer) => layer.id !== id) });
+      };
+
+      const layerControls = spec.layers.map((layer, index) => h('div', {
         key: layer.id,
         style: {
           display: 'flex',
@@ -1554,21 +1600,32 @@ void main(){
           h('span', {
             key: 'label',
             style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
-          }, store.translate(LAYER_LABELS[layer.id] ?? layer.id)),
-          h('input', {
-            key: 'color',
-            type: 'color',
-            value: layer.color.slice(0, 7),
-            title: store.translate('palette'),
-            onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-            style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-          }),
+          }, layerLabel(layer, index)),
+          h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+            h('input', {
+              key: 'color',
+              type: 'color',
+              value: layer.color.slice(0, 7),
+              title: store.translate('palette'),
+              onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+              style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+            }),
+            spec.layers.length > 1
+              ? h('button', {
+                key: 'remove',
+                type: 'button',
+                title: store.translate('removeLayer'),
+                onClick: () => removeLayer(layer.id),
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: 10, lineHeight: '16px' },
+              }, '✕')
+              : null,
+          ]),
         ]),
         h('input', {
           key: 'text',
           type: 'text',
           value: drafts[layer.id] !== undefined ? drafts[layer.id] : layer.text,
-          placeholder: store.translate(LAYER_LABELS[layer.id] ?? layer.id),
+          placeholder: layerLabel(layer, index),
           onChange: (event) => setDrafts((current) => ({ ...current, [layer.id]: event.target.value })),
           onBlur: (event) => {
             setDrafts((current) => { const next = { ...current }; delete next[layer.id]; return next; });
@@ -1722,6 +1779,13 @@ void main(){
           }),
         ]),
         ...layerControls,
+        h('button', {
+          key: 'addText',
+          type: 'button',
+          onClick: addLayer,
+          disabled: spec.layers.length >= 12,
+          style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+        }, `+ ${store.translate('addText')}`),
       ]);
 
       const palette = h('div', { key: 'pane-palette', style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [

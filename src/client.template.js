@@ -1452,6 +1452,82 @@ void main(){
      * @param {{ spec: Record<string, any> }} props - component props.
      * @returns {React.ReactElement} the stage element.
      */
+    /**
+     * The all-sizes comparison grid; cards scale to the available stage box.
+     * @param {{ spec: Record<string, any>, onSelect: (key: string) => void, onTipMove: (event: any, item: Record<string, any>) => void, onTipLeave: () => void }} props - component props.
+     * @returns {React.ReactElement} the grid element.
+     */
+    function GridStage(props) {
+      const boxRef = React.useRef(null);
+      const [box, setBox] = React.useState({ width: 0, height: 0 });
+
+      React.useEffect(() => {
+        const node = boxRef.current;
+        if (!node || typeof ResizeObserver === 'undefined') return undefined;
+        const measure = () => {
+          const rect = node.getBoundingClientRect();
+          setBox({ width: rect.width, height: rect.height });
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        return () => observer.disconnect();
+      }, []);
+
+      const specs = React.useMemo(() => {
+        const map = {};
+        for (const key of SIZE_ORDER) map[key] = { ...props.spec, size: key };
+        return map;
+      }, [props.spec]);
+
+      const [layouts, setLayouts] = React.useState({});
+
+      const columns = 3;
+      const gap = 6;
+      const pad = 8;
+      const cellW = Math.max(96, (box.width - pad * 2 - gap * (columns - 1)) / columns);
+      const cellH = Math.max(150, (box.height - pad * 2 - gap) / 2);
+
+      return h('div', {
+        ref: boxRef,
+        style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gridTemplateRows: 'repeat(2, minmax(0, 1fr))', gap, padding: pad, overflowY: 'auto' },
+      }, SIZE_ORDER.map((key) => {
+        const item = SIZES[key];
+        const maxW = cellW - 16;
+        const maxH = cellH - 16;
+        const fit = Math.min(maxW / item.width, maxH / item.height);
+        const width = Math.max(1, Math.round(item.width * fit));
+        const height = Math.max(1, Math.round(item.height * fit));
+        return h('button', {
+          key,
+          type: 'button',
+          onClick: () => props.onSelect(key),
+          onMouseMove: (event) => props.onTipMove(event, item),
+          onMouseLeave: props.onTipLeave,
+          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        }, h('div', { key: 'wrap', style: { position: 'relative', width, height } }, [
+          h(PosterCanvas, {
+            spec: specs[key],
+            width,
+            height,
+            onLayout: (entries) => setLayouts((current) => ({ ...current, [key]: entries })),
+          }),
+          ...(layouts[key] ?? []).map((entry) => h('div', {
+            key: entry.id,
+            style: {
+              position: 'absolute',
+              left: `${(entry.x / item.width) * 100}%`,
+              top: `${(entry.y / item.height) * 100}%`,
+              width: `${(entry.width / item.width) * 100}%`,
+              height: `${(entry.height / item.height) * 100}%`,
+              border: '1px dashed rgba(255,255,255,0.32)',
+              pointerEvents: 'none',
+            },
+          })),
+        ]));
+      }));
+    }
+
     function PosterStage(props) {
       const stageRef = React.useRef(null);
       const posterRef = React.useRef(null);
@@ -2655,52 +2731,13 @@ void main(){
         });
       };
 
-      const gridSpecs = React.useMemo(() => {
-        const map = {};
-        for (const key of SIZE_ORDER) map[key] = { ...spec, size: key };
-        return map;
-      }, [spec]);
-
-      const [gridLayouts, setGridLayouts] = React.useState({});
-
       const stage = mode === 'all'
-        ? h('div', { style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 166px))', gap: 6, padding: 8, justifyContent: 'center', alignContent: 'start', overflowY: 'auto' } },
-          SIZE_ORDER.map((key) => {
-            const item = SIZES[key];
-            const cellHeight = 272;
-            const maxW = 150;
-            const maxH = cellHeight - 20;
-            const fit = Math.min(maxW / item.width, maxH / item.height);
-            const width = Math.round(item.width * fit);
-            const height = Math.round(item.height * fit);
-            return h('button', {
-              key,
-              type: 'button',
-              onClick: () => { store.applySpec({ size: key }); setMode('single'); },
-              onMouseMove: (event) => moveSizeTip(event, item),
-              onMouseLeave: () => setSizeTip(null),
-              style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', height: cellHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-            }, h('div', { key: 'wrap', style: { position: 'relative', width, height } }, [
-              h(PosterCanvas, {
-                spec: gridSpecs[key],
-                width,
-                height,
-                onLayout: (entries) => setGridLayouts((current) => ({ ...current, [key]: entries })),
-              }),
-              ...(gridLayouts[key] ?? []).map((entry) => h('div', {
-                key: entry.id,
-                style: {
-                  position: 'absolute',
-                  left: `${(entry.x / item.width) * 100}%`,
-                  top: `${(entry.y / item.height) * 100}%`,
-                  width: `${(entry.width / item.width) * 100}%`,
-                  height: `${(entry.height / item.height) * 100}%`,
-                  border: '1px dashed rgba(255,255,255,0.32)',
-                  pointerEvents: 'none',
-                },
-              })),
-            ]));
-          }))
+        ? h(GridStage, {
+          spec,
+          onSelect: (key) => { store.applySpec({ size: key }); setMode('single'); },
+          onTipMove: moveSizeTip,
+          onTipLeave: () => setSizeTip(null),
+        })
         : h(PosterStage, { spec });
 
       if (!embedded && !store.open) return null;

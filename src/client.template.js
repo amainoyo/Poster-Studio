@@ -100,6 +100,26 @@ window.__ModuleLoader__.load({
 
     const SIZE_ORDER = ['1080x1350', '1080x1920', '1920x1080', '1080x1080', '1200x628'];
 
+    const CUSTOM_SIZE_RE = /^(\d{3,4})x(\d{3,4})$/;
+
+    /**
+     * Resolve any canvas size: a preset key, or a custom WxH clamped per side.
+     * @param {string} size - the size key.
+     * @returns {{ width: number, height: number }} the pixel dimensions.
+     */
+    function parseSize(size) {
+      const preset = SIZES[size];
+      if (preset) return preset;
+      const match = CUSTOM_SIZE_RE.exec(typeof size === 'string' ? size : '');
+      if (match) {
+        return {
+          width: Math.min(4000, Math.max(200, Number(match[1]))),
+          height: Math.min(4000, Math.max(200, Number(match[2]))),
+        };
+      }
+      return SIZES['1080x1350'];
+    }
+
     const COLOR_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
 
     const DEFAULT_COLORS = {
@@ -318,6 +338,12 @@ void main(){
         palette: 'Palette',
         backdrop: 'Backdrop',
         allSizes: 'All sizes',
+        customSize: 'Custom size',
+        customSizeHint: 'Each side 200–4000 px',
+        canvasWidth: 'Width',
+        canvasHeight: 'Height',
+        cancel: 'Cancel',
+        apply: 'Apply',
         title: 'Headline',
         subtitle: 'Subtitle',
         footer: 'Footer',
@@ -380,6 +406,12 @@ void main(){
         palette: '配色',
         backdrop: '背景',
         allSizes: '全部尺寸',
+        customSize: '自定义尺寸',
+        customSizeHint: '每边 200–4000 像素',
+        canvasWidth: '宽',
+        canvasHeight: '高',
+        cancel: '取消',
+        apply: '应用',
         title: '标题',
         subtitle: '副标题',
         footer: '落款',
@@ -430,7 +462,7 @@ void main(){
         shader: { ...base.shader },
       };
       if (!patch || typeof patch !== 'object') return next;
-      if (typeof patch.size === 'string' && SIZES[patch.size]) next.size = patch.size;
+      if (typeof patch.size === 'string' && (SIZES[patch.size] || CUSTOM_SIZE_RE.test(patch.size))) next.size = patch.size;
       if (patch.colors && typeof patch.colors === 'object') {
         for (const key of COLOR_KEYS) {
           const color = normalizeColor(patch.colors[key]);
@@ -699,7 +731,7 @@ void main(){
      * @returns {Promise<HTMLCanvasElement[]>} one canvas per variant.
      */
     async function renderVariants(variants, width, height) {
-      const preset = SIZES[variants[0]?.size] || SIZES['1080x1350'];
+      const preset = parseSize(variants[0]?.size);
       await Promise.all([
         ...variants.map((variant) => preloadSpecImages(variant)),
         ...variants.map((variant) => preloadSpecFonts(variant)),
@@ -1277,7 +1309,7 @@ void main(){
      * @returns {Promise<Blob | null>} the rendered image.
      */
     async function renderPng(spec) {
-      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      const preset = parseSize(spec.size);
       await Promise.all([preloadSpecImages(spec), preloadSpecFonts(spec)]);
       const renderer = createRenderer();
       try {
@@ -1305,7 +1337,7 @@ void main(){
     function PosterCanvas(props) {
       const hostRef = React.useRef(null);
       const rendererRef = React.useRef(null);
-      const preset = SIZES[props.spec.size] || SIZES['1080x1350'];
+      const preset = parseSize(props.spec.size);
 
       React.useEffect(() => {
         const renderer = createRenderer();
@@ -1423,7 +1455,7 @@ void main(){
         return () => observer.disconnect();
       }, []);
 
-      const preset = SIZES[props.spec.size] || SIZES['1080x1350'];
+      const preset = parseSize(props.spec.size);
       const scale = box.width > 0 && box.height > 0
         ? Math.min(box.width / preset.width, box.height / preset.height)
         : 0;
@@ -1583,6 +1615,7 @@ void main(){
       const [tab, setTab] = React.useState('content');
       const [mode, setMode] = React.useState('single');
       const [fullscreen, setFullscreen] = React.useState(false);
+      const [customSize, setCustomSize] = React.useState(null);
       const [status, setStatus] = React.useState('');
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
@@ -1733,7 +1766,7 @@ void main(){
         return () => { cancelled = true; };
       }, [library.length]);
 
-      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      const preset = parseSize(spec.size);
 
       const patchLayer = (id, changes) => {
         store.applySpec({
@@ -1850,7 +1883,7 @@ void main(){
 
       const makeVariants = async () => {
         const list = buildVariants(store.spec, 6);
-        const preset = SIZES[store.spec.size] || SIZES['1080x1350'];
+        const preset = parseSize(store.spec.size);
         const width = 170;
         const height = Math.round((width * preset.height) / preset.width);
         const canvases = await renderVariants(list, width, height);
@@ -2632,9 +2665,14 @@ void main(){
         }, [
           h('select', {
             key: 'size',
-            value: mode === 'all' ? 'all' : spec.size,
+            value: mode === 'all' ? 'all' : (SIZES[spec.size] ? spec.size : '__custom'),
             onChange: (event) => {
               if (event.target.value === 'all') { setMode('all'); return; }
+              if (event.target.value === '__custom') {
+                const current = parseSize(spec.size);
+                setCustomSize({ w: String(current.width), h: String(current.height) });
+                return;
+              }
               setMode('single');
               store.applySpec({ size: event.target.value });
             },
@@ -2649,6 +2687,7 @@ void main(){
           }, [
             h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
             ...SIZE_ORDER.map((key) => h('option', { key, value: key }, `${SIZES[key].label} ${key}`)),
+            h('option', { key: '__custom', value: '__custom' }, SIZES[spec.size] ? store.translate('customSize') : `${store.translate('customSize')} ${preset.width}×${preset.height}`),
           ]),
           h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)' } }, `${preset.width}×${preset.height}`),
           h('button', {
@@ -2793,6 +2832,64 @@ void main(){
           h('div', { key: 's', onMouseDown: (event) => startResize(event, 's'), style: { position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize', pointerEvents: 'auto' } }),
           h('div', { key: 'se', onMouseDown: (event) => startResize(event, 'se'), style: { position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', pointerEvents: 'auto' } }),
         ]),
+        customSize
+          ? h('div', {
+            key: 'customSizeDialog',
+            onMouseDown: (event) => event.stopPropagation(),
+            style: { position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
+          }, h('div', {
+            style: { width: 236, padding: 14, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-overlay)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 10 },
+          }, [
+            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, store.translate('customSize')),
+            h('div', { key: 'rows', style: { display: 'flex', gap: 10 } }, [
+              h('label', { key: 'w', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, [
+                store.translate('canvasWidth'),
+                h('input', {
+                  key: 'in',
+                  type: 'number',
+                  min: 200,
+                  max: 4000,
+                  value: customSize.w,
+                  onChange: (event) => setCustomSize((current) => ({ ...current, w: event.target.value })),
+                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 13, outline: 'none' },
+                }),
+              ]),
+              h('label', { key: 'h', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, [
+                store.translate('canvasHeight'),
+                h('input', {
+                  key: 'in',
+                  type: 'number',
+                  min: 200,
+                  max: 4000,
+                  value: customSize.h,
+                  onChange: (event) => setCustomSize((current) => ({ ...current, h: event.target.value })),
+                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 13, outline: 'none' },
+                }),
+              ]),
+            ]),
+            h('span', { key: 'hint', style: { fontSize: 10, color: 'var(--dsw-alias-label-tertiary)' } }, store.translate('customSizeHint')),
+            h('div', { key: 'actions', style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } }, [
+              h('button', {
+                key: 'cancel',
+                type: 'button',
+                onClick: () => setCustomSize(null),
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+              }, store.translate('cancel')),
+              h('button', {
+                key: 'apply',
+                type: 'button',
+                onClick: () => {
+                  const width = Math.min(4000, Math.max(200, Math.round(Number(customSize.w)) || 0));
+                  const height = Math.min(4000, Math.max(200, Math.round(Number(customSize.h)) || 0));
+                  setMode('single');
+                  store.applySpec({ size: `${width}x${height}` });
+                  setCustomSize(null);
+                },
+                style: { padding: '5px 12px', borderRadius: 7, border: 'none', background: 'var(--dsw-alias-brand-primary)', color: '#fff', fontSize: 12, cursor: 'pointer' },
+              }, store.translate('apply')),
+            ]),
+          ]))
+          : null,
       ]);
     }
 
@@ -2852,7 +2949,7 @@ void main(){
       });
 
       const spec = store.spec;
-      const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      const preset = parseSize(spec.size);
       const width = 420;
       const height = Math.round((width * preset.height) / preset.width);
       const shown = Math.min(height, 300);

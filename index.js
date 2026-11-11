@@ -19,6 +19,26 @@ export const SIZES = {
   '1200x628': { width: 1200, height: 628, label: 'Banner' },
 };
 
+/** Custom canvas size spelling, e.g. 1200x800. */
+const CUSTOM_SIZE_RE = /^(\d{3,4})x(\d{3,4})$/;
+
+/**
+ * Validate a canvas size: preset key, or a custom WxH clamped to 200..4000.
+ * @param {unknown} value - the candidate size.
+ * @param {string} fallbackValue - returned when the candidate is invalid.
+ * @returns {string} a size key like '1080x1350' or '1200x800'.
+ */
+function normalizeSizeKey(value, fallbackValue) {
+  if (typeof value === 'string' && SIZES[value]) return value;
+  const match = CUSTOM_SIZE_RE.exec(typeof value === 'string' ? value : '');
+  if (match) {
+    const width = Math.min(4000, Math.max(200, Number(match[1])));
+    const height = Math.min(4000, Math.max(200, Number(match[2])));
+    return `${width}x${height}`;
+  }
+  return fallbackValue;
+}
+
 /** Shader colour slots, in the order the shader mixes them. */
 const COLOR_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
 
@@ -66,7 +86,7 @@ export const inject = ['tools', 'commands'];
  * @returns {Record<string, unknown>} the default specification.
  */
 function defaultSpec(config = {}) {
-  const size = typeof config.size === 'string' && SIZES[config.size] ? config.size : '1080x1350';
+  const size = normalizeSizeKey(config.size, '1080x1350');
   const colors = { ...DEFAULT_COLORS };
   if (config.colors && typeof config.colors === 'object') {
     for (const key of COLOR_KEYS) {
@@ -254,7 +274,7 @@ function normalizeSpec(value, base) {
   }
   return {
     version: SPEC_VERSION,
-    size: typeof source.size === 'string' && SIZES[source.size] ? source.size : base.size,
+    size: normalizeSizeKey(source.size, base.size),
     layers,
     colors,
     shader,
@@ -280,7 +300,10 @@ function applyPatch(base, patch) {
     colors: { ...base.colors },
     shader: { ...base.shader },
   };
-  if (patch.size !== undefined && SIZES[patch.size]) next.size = patch.size;
+  if (patch.size !== undefined) {
+    const sizeKey = normalizeSizeKey(patch.size, '');
+    if (sizeKey) next.size = sizeKey;
+  }
   if (patch.colors && typeof patch.colors === 'object') {
     for (const key of COLOR_KEYS) {
       const value = patch.colors[key];
@@ -585,8 +608,7 @@ export function apply(ctx, config = {}) {
         size: {
           type: 'string',
           required: false,
-          description: 'Canvas size preset.',
-          enum: Object.keys(SIZES),
+          description: 'Canvas size: a preset like 1080x1350, or custom WxH with each side between 200 and 4000.',
         },
         colors: {
           type: 'object',

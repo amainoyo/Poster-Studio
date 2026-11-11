@@ -1632,6 +1632,7 @@ void main(){
       const [fullscreen, setFullscreen] = React.useState(false);
       const [customSize, setCustomSize] = React.useState(null);
       const [collapsedIds, setCollapsedIds] = React.useState([]);
+      const [sizeTip, setSizeTip] = React.useState(null);
       const [status, setStatus] = React.useState('');
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
@@ -2631,6 +2632,35 @@ void main(){
         { id: 'library', label: store.translate('library') },
       ];
 
+      const tipRaf = React.useRef(0);
+      const tipPos = React.useRef(null);
+
+      /**
+       * Position the hover size tooltip, throttled to one animation frame.
+       * @param {any} event - the pointer move event.
+       * @param {{ label: string, width: number, height: number }} item - the size entry.
+       */
+      const moveSizeTip = (event, item) => {
+        const rect = panelRef.current ? panelRef.current.getBoundingClientRect() : null;
+        if (!rect) return;
+        tipPos.current = {
+          x: Math.min(event.clientX - rect.left + 14, rect.width - 150),
+          y: event.clientY - rect.top + 18,
+          text: `${item.label} · ${item.width}×${item.height}`,
+        };
+        if (tipRaf.current) return;
+        tipRaf.current = requestAnimationFrame(() => {
+          tipRaf.current = 0;
+          setSizeTip(tipPos.current);
+        });
+      };
+
+      const gridSpecs = React.useMemo(() => {
+        const map = {};
+        for (const key of SIZE_ORDER) map[key] = { ...spec, size: key };
+        return map;
+      }, [spec]);
+
       const stage = mode === 'all'
         ? h('div', { style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 150px))', gap: 6, padding: 8, justifyContent: 'center', alignContent: 'start', overflowY: 'auto' } },
           SIZE_ORDER.map((key) => {
@@ -2641,8 +2671,10 @@ void main(){
               key,
               type: 'button',
               onClick: () => { store.applySpec({ size: key }); setMode('single'); },
+              onMouseMove: (event) => moveSizeTip(event, item),
+              onMouseLeave: () => setSizeTip(null),
               style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', height },
-            }, h(PosterCanvas, { spec: { ...spec, size: key }, width, height }));
+            }, h(PosterCanvas, { spec: gridSpecs[key], width, height }));
           }))
         : h(PosterStage, { spec });
 
@@ -2849,6 +2881,26 @@ void main(){
           h('div', { key: 's', onMouseDown: (event) => startResize(event, 's'), style: { position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize', pointerEvents: 'auto' } }),
           h('div', { key: 'se', onMouseDown: (event) => startResize(event, 'se'), style: { position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', pointerEvents: 'auto' } }),
         ]),
+        sizeTip && mode === 'all'
+          ? h('div', {
+            key: 'sizeTip',
+            style: {
+              position: 'absolute',
+              left: sizeTip.x,
+              top: sizeTip.y,
+              zIndex: 20,
+              pointerEvents: 'none',
+              padding: '3px 8px',
+              borderRadius: 6,
+              background: 'rgba(24,24,28,0.94)',
+              border: '1px solid var(--dsw-alias-border-l1)',
+              color: 'var(--dsw-alias-label-primary)',
+              fontSize: 11,
+              whiteSpace: 'nowrap',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+            },
+          }, sizeTip.text)
+          : null,
         customSize
           ? h('div', {
             key: 'customSizeDialog',

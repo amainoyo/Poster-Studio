@@ -2661,20 +2661,45 @@ void main(){
         return map;
       }, [spec]);
 
+      const [gridLayouts, setGridLayouts] = React.useState({});
+
       const stage = mode === 'all'
-        ? h('div', { style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 150px))', gap: 6, padding: 8, justifyContent: 'center', alignContent: 'start', overflowY: 'auto' } },
+        ? h('div', { style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 166px))', gap: 6, padding: 8, justifyContent: 'center', alignContent: 'start', overflowY: 'auto' } },
           SIZE_ORDER.map((key) => {
             const item = SIZES[key];
-            const width = 150;
-            const height = Math.round((width * item.height) / item.width);
+            const cellHeight = 272;
+            const maxW = 150;
+            const maxH = cellHeight - 20;
+            const fit = Math.min(maxW / item.width, maxH / item.height);
+            const width = Math.round(item.width * fit);
+            const height = Math.round(item.height * fit);
             return h('button', {
               key,
               type: 'button',
               onClick: () => { store.applySpec({ size: key }); setMode('single'); },
               onMouseMove: (event) => moveSizeTip(event, item),
               onMouseLeave: () => setSizeTip(null),
-              style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', height },
-            }, h(PosterCanvas, { spec: gridSpecs[key], width, height }));
+              style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', height: cellHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+            }, h('div', { key: 'wrap', style: { position: 'relative', width, height } }, [
+              h(PosterCanvas, {
+                spec: gridSpecs[key],
+                width,
+                height,
+                onLayout: (entries) => setGridLayouts((current) => ({ ...current, [key]: entries })),
+              }),
+              ...(gridLayouts[key] ?? []).map((entry) => h('div', {
+                key: entry.id,
+                style: {
+                  position: 'absolute',
+                  left: `${(entry.x / item.width) * 100}%`,
+                  top: `${(entry.y / item.height) * 100}%`,
+                  width: `${(entry.width / item.width) * 100}%`,
+                  height: `${(entry.height / item.height) * 100}%`,
+                  border: '1px dashed rgba(255,255,255,0.32)',
+                  pointerEvents: 'none',
+                },
+              })),
+            ]));
           }))
         : h(PosterStage, { spec });
 

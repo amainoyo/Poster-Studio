@@ -2632,7 +2632,7 @@ void main(){
       ];
 
       const stage = mode === 'all'
-        ? h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, padding: 8 } },
+        ? h('div', { style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 150px))', gap: 6, padding: 8, justifyContent: 'center', alignContent: 'start', overflowY: 'auto' } },
           SIZE_ORDER.map((key) => {
             const item = SIZES[key];
             const width = 150;

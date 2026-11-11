@@ -176,6 +176,14 @@ function normalizeLayer(value, fallback) {
     lineHeight: clamp(source.lineHeight, 0.8, 3, fallback.lineHeight),
     letterSpacing: clamp(source.letterSpacing, -10, 40, fallback.letterSpacing),
     maxWidth: clamp(source.maxWidth, 0.2, 1, fallback.maxWidth),
+    kind: source.kind === 'image' ? 'image' : 'text',
+    src: typeof source.src === 'string'
+      && /^data:image\/(png|jpeg|webp|gif);base64,/.test(source.src)
+      && source.src.length <= 2500000
+      ? source.src
+      : (typeof fallback.src === 'string' ? fallback.src : ''),
+    width: clamp(source.width, 0.02, 1.5, typeof fallback.width === 'number' ? fallback.width : 0.3),
+    opacity: clamp(source.opacity, 0, 1, typeof fallback.opacity === 'number' ? fallback.opacity : 1),
   };
 }
 
@@ -608,7 +616,7 @@ export function apply(ctx, config = {}) {
               items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['id', 'text'],
+                required: ['id'],
                 properties: {
                   id: { type: 'string' },
                   text: { type: 'string' },
@@ -621,6 +629,9 @@ export function apply(ctx, config = {}) {
                   lineHeight: { type: 'number' },
                   letterSpacing: { type: 'number' },
                   maxWidth: { type: 'number' },
+                  kind: { type: 'string', enum: ['text', 'image'] },
+                  width: { type: 'number' },
+                  opacity: { type: 'number' },
                 },
               },
             },

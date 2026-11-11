@@ -224,6 +224,12 @@ void main(){
         textLayer: 'Text',
         addText: 'Add text',
         removeLayer: 'Remove layer',
+        imageLayer: 'Image',
+        addImage: 'Add image',
+        replaceImage: 'Replace',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        imageWidth: 'Width',
         studioFloatHint: 'The poster studio opens as a floating window.',
         close: 'Close',
         export: 'Export PNG',
@@ -267,6 +273,12 @@ void main(){
         textLayer: '文本',
         addText: '添加文本',
         removeLayer: '删除该层',
+        imageLayer: '图片',
+        addImage: '添加图片',
+        replaceImage: '更换图片',
+        moveUp: '上移',
+        moveDown: '下移',
+        imageWidth: '宽度',
         studioFloatHint: '海报工作台以浮动窗口打开，不会占用会话区。',
         close: '关闭',
         export: '导出 PNG',
@@ -363,6 +375,10 @@ void main(){
           if (typeof entry.lineHeight === 'number' && entry.lineHeight >= 0.8 && entry.lineHeight <= 3) layer.lineHeight = entry.lineHeight;
           if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
+          if (entry.kind === 'image' || layer.kind === 'image') layer.kind = 'image';
+          if (typeof entry.src === 'string' && entry.src.startsWith('data:image/')) layer.src = entry.src;
+          if (typeof entry.width === 'number' && entry.width >= 0.02 && entry.width <= 1.5) layer.width = entry.width;
+          if (typeof entry.opacity === 'number' && entry.opacity >= 0 && entry.opacity <= 1) layer.opacity = entry.opacity;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
           if (merged.length >= 12) break;
@@ -587,6 +603,7 @@ void main(){
      */
     async function renderVariants(variants, width, height) {
       const preset = SIZES[variants[0]?.size] || SIZES['1080x1350'];
+      await Promise.all(variants.map((variant) => preloadSpecImages(variant)));
       const renderer = createRenderer();
       const outputs = [];
       try {
@@ -748,18 +765,75 @@ void main(){
       };
     }
 
+    /** Decoded images shared across renderers, keyed by data URL. */
+    const imageCache = new Map();
+
     /**
-     * Render the text layer of one specification.
+     * Decode one data-URL image once and share it across renderers.
+     * @param {string} src - the data URL.
+     * @param {() => void} [onReady] - called once when decoding finished.
+     * @returns {HTMLImageElement | null} the image when already decoded.
+     */
+    function cachedImage(src, onReady) {
+      if (typeof src !== 'string' || src.length === 0) return null;
+      let entry = imageCache.get(src);
+      if (!entry) {
+        entry = { image: new Image(), ready: false, waiters: new Set() };
+        entry.image.onload = () => {
+          entry.ready = true;
+          for (const waiter of entry.waiters) waiter();
+          entry.waiters.clear();
+        };
+        entry.image.src = src;
+        imageCache.set(src, entry);
+      }
+      if (entry.ready) return entry.image;
+      if (onReady) entry.waiters.add(onReady);
+      return null;
+    }
+
+    /**
+     * Wait until every image layer of a specification can be drawn.
+     * @param {Record<string, any>} spec - the specification.
+     * @returns {Promise<void>} resolves when decoded or failed.
+     */
+    function preloadSpecImages(spec) {
+      const sources = (spec.layers ?? [])
+        .filter((layer) => layer.kind === 'image' && typeof layer.src === 'string' && layer.src.length > 0)
+        .map((layer) => layer.src);
+      return Promise.all(sources.map((src) => new Promise((resolve) => {
+        if (cachedImage(src, resolve)) resolve();
+      }))).then(() => undefined);
+    }
+
+    /**
+     * Render every layer (text and image) of one specification.
      * @param {CanvasRenderingContext2D} ctx - the drawing context.
      * @param {Record<string, any>} spec - the specification.
      * @param {number} width - the canvas width.
      * @param {number} height - the canvas height.
+     * @param {() => void} [onImageReady] - repaint hook for late images.
      * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
      */
-    function renderText(ctx, spec, width, height) {
+    function renderText(ctx, spec, width, height, onImageReady) {
       ctx.clearRect(0, 0, width, height);
       const layout = [];
       for (const layer of spec.layers) {
+        if (layer.kind === 'image') {
+          const image = cachedImage(layer.src, onImageReady);
+          if (!image) continue;
+          const drawWidth = Math.max(4, (layer.width ?? 0.3) * width);
+          const ratio = image.naturalWidth > 0 ? image.naturalHeight / image.naturalWidth : 1;
+          const drawHeight = Math.max(4, drawWidth * ratio);
+          const left = layer.x * width - drawWidth / 2;
+          const top = layer.y * height - drawHeight / 2;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
+          ctx.drawImage(image, left, top, drawWidth, drawHeight);
+          ctx.restore();
+          layout.push({ id: layer.id, x: left, y: top, width: drawWidth, height: drawHeight });
+          continue;
+        }
         if (!layer.text) continue;
         const lines = wrapLines(ctx, layer, width);
         const bounds = drawLayer(ctx, layer, lines, width, height);
@@ -893,6 +967,11 @@ void main(){
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       };
 
+      const repaint = () => {
+        layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint);
+        drawFrame();
+      };
+
       const onVisibility = () => {
         if (!document.hidden && raf === 0) raf = requestAnimationFrame(tick);
       };
@@ -945,7 +1024,7 @@ void main(){
             gl.uniform2f(locations.resolution, width, height);
             gl.uniform2f(locations.grainResolution, width, height);
           }
-          layout = renderText(textContext, spec, logicalW, logicalH);
+          layout = renderText(textContext, spec, logicalW, logicalH, repaint);
           drawFrame();
         },
         /**
@@ -954,7 +1033,7 @@ void main(){
          */
         applySpec(next) {
           spec = next;
-          layout = renderText(textContext, spec, posterWidth || width, posterHeight || height);
+          layout = renderText(textContext, spec, posterWidth || width, posterHeight || height, repaint);
           drawFrame();
         },
         /**
@@ -996,6 +1075,7 @@ void main(){
      */
     async function renderPng(spec) {
       const preset = SIZES[spec.size] || SIZES['1080x1350'];
+      await preloadSpecImages(spec);
       const renderer = createRenderer();
       try {
         renderer.setSize(preset.width, preset.height, preset.width, preset.height);
@@ -1302,6 +1382,8 @@ void main(){
       const [fullscreen, setFullscreen] = React.useState(false);
       const [status, setStatus] = React.useState('');
       const [drafts, setDrafts] = React.useState({});
+      const imageFileInput = React.useRef(null);
+      const pendingImageLayer = React.useRef(null);
       const [variants, setVariants] = React.useState([]);
       const [library, setLibrary] = React.useState([]);
       const [position, setPosition] = React.useState(() => {
@@ -1456,6 +1538,55 @@ void main(){
         });
       };
 
+      const imageToCompactDataUrl = async (file) => {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('the image could not be read'));
+          reader.readAsDataURL(file);
+        });
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = () => reject(new Error('the image could not be decoded'));
+          image.src = dataUrl;
+        });
+        const maxSide = 800;
+        const scale = Math.min(1, maxSide / Math.max(1, image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/webp', 0.92);
+      };
+
+      const onImageFile = async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+          const src = await imageToCompactDataUrl(file);
+          const target = pendingImageLayer.current;
+          pendingImageLayer.current = null;
+          if (target !== null) {
+            patchLayer(target, { src });
+            return;
+          }
+          const used = new Set(spec.layers.map((layer) => layer.id));
+          let n = 1;
+          while (used.has(`img-${n}`)) n += 1;
+          store.applySpec({
+            layers: [
+              ...spec.layers,
+              { id: `img-${n}`, kind: 'image', src, text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.5, width: 0.25, opacity: 1, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
+            ],
+          });
+        } catch (error) {
+          console.warn('poster-studio: the image could not be added', error);
+          setStatus(String(error && error.message ? error.message : error));
+        }
+      };
+
       const exportPng = async () => {
         setStatus(store.translate('export') + '…');
         try {
@@ -1563,7 +1694,7 @@ void main(){
 
       const layerLabel = (layer, index) => (LAYER_LABELS[layer.id]
         ? store.translate(LAYER_LABELS[layer.id])
-        : `${store.translate('textLayer')} ${index + 1}`);
+        : `${store.translate(layer.kind === 'image' ? 'imageLayer' : 'textLayer')} ${index + 1}`);
 
       const addLayer = () => {
         const used = new Set(spec.layers.map((layer) => layer.id));
@@ -1582,26 +1713,142 @@ void main(){
         store.applySpec({ layers: spec.layers.filter((layer) => layer.id !== id) });
       };
 
-      const layerControls = spec.layers.map((layer, index) => h('div', {
-        key: layer.id,
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          padding: '9px 10px 11px',
-          borderRadius: 10,
-          background: 'var(--dsw-alias-bg-layer-2)',
-        },
-      }, [
-        h('div', {
-          key: 'head',
-          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+      const layerCardStyle = {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        padding: '9px 10px 11px',
+        borderRadius: 10,
+        background: 'var(--dsw-alias-bg-layer-2)',
+      };
+
+      const layerChipStyle = {
+        width: 18,
+        height: 18,
+        padding: 0,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 5,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-tertiary)',
+        cursor: 'pointer',
+        fontSize: 10,
+        lineHeight: '16px',
+      };
+
+      const layerMove = (index, direction) => {
+        const target = index + direction;
+        if (target < 0 || target >= spec.layers.length) return;
+        const layers = spec.layers.slice();
+        const moved = layers.splice(index, 1)[0];
+        layers.splice(target, 0, moved);
+        store.applySpec({ layers });
+      };
+
+      const layerMoveButtons = (layer, index) => [
+        h('button', {
+          key: 'up',
+          type: 'button',
+          title: store.translate('moveUp'),
+          disabled: index === 0,
+          onClick: () => layerMove(index, -1),
+          style: { ...layerChipStyle, opacity: index === 0 ? 0.35 : 1 },
+        }, '↑'),
+        h('button', {
+          key: 'down',
+          type: 'button',
+          title: store.translate('moveDown'),
+          disabled: index === spec.layers.length - 1,
+          onClick: () => layerMove(index, 1),
+          style: { ...layerChipStyle, opacity: index === spec.layers.length - 1 ? 0.35 : 1 },
+        }, '↓'),
+      ];
+
+      const layerRemoveButton = (layer) => h('button', {
+        key: 'remove',
+        type: 'button',
+        title: store.translate('removeLayer'),
+        onClick: () => removeLayer(layer.id),
+        style: layerChipStyle,
+      }, '✕');
+
+      const layerControls = spec.layers.map((layer, index) => {
+        if (layer.kind === 'image') {
+          return h('div', { key: layer.id, style: layerCardStyle }, [
+            h('div', {
+              key: 'head',
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+            }, [
+              h('span', {
+                key: 'label',
+                style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+              }, layerLabel(layer, index)),
+              h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+                ...layerMoveButtons(layer, index),
+                spec.layers.length > 1 ? layerRemoveButton(layer) : null,
+              ]),
+            ]),
+            h('div', { key: 'thumbRow', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
+              h('img', {
+                key: 'preview',
+                src: layer.src,
+                alt: '',
+                style: { maxWidth: 110, maxHeight: 52, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)' },
+              }),
+              h('button', {
+                key: 'replace',
+                type: 'button',
+                onClick: () => { pendingImageLayer.current = layer.id; imageFileInput.current?.click(); },
+                style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+              }, store.translate('replaceImage')),
+            ]),
+            h('div', { key: 'size', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, {
+                key: 'w',
+                label: store.translate('imageWidth'),
+                stretch: true,
+                value: layer.width,
+                min: 0.02,
+                max: 1.5,
+                step: 0.01,
+                scale: 100,
+                precision: 0,
+                onChange: (value) => patchLayer(layer.id, { width: value }),
+              }),
+            ]),
+            h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
+              h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
+            ]),
+            h('div', { key: 'opacityRow', style: { display: 'flex', gap: 10 } }, [
+              h(Stepper, {
+                key: 'opacity',
+                label: store.translate('opacity'),
+                stretch: true,
+                value: layer.opacity ?? 1,
+                min: 0,
+                max: 1,
+                step: 0.05,
+                scale: 100,
+                precision: 0,
+                onChange: (value) => patchLayer(layer.id, { opacity: value }),
+              }),
+            ]),
+          ]);
+        }
+        return h('div', {
+          key: layer.id,
+          style: layerCardStyle,
         }, [
-          h('span', {
-            key: 'label',
-            style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+          h('div', {
+            key: 'head',
+            style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+          }, [
+            h('span', {
+              key: 'label',
+              style: { fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
           }, layerLabel(layer, index)),
           h('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+            ...layerMoveButtons(layer, index),
             h('input', {
               key: 'color',
               type: 'color',
@@ -1610,15 +1857,7 @@ void main(){
               onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
               style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
             }),
-            spec.layers.length > 1
-              ? h('button', {
-                key: 'remove',
-                type: 'button',
-                title: store.translate('removeLayer'),
-                onClick: () => removeLayer(layer.id),
-                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: 10, lineHeight: '16px' },
-              }, '✕')
-              : null,
+            spec.layers.length > 1 ? layerRemoveButton(layer) : null,
           ]),
         ]),
         h('input', {
@@ -1731,7 +1970,8 @@ void main(){
             }),
           }),
         ]),
-      ]));
+        ]);
+      });
 
       const actionStyle = {
         padding: '5px 0',
@@ -1779,13 +2019,30 @@ void main(){
           }),
         ]),
         ...layerControls,
-        h('button', {
-          key: 'addText',
-          type: 'button',
-          onClick: addLayer,
-          disabled: spec.layers.length >= 12,
-          style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
-        }, `+ ${store.translate('addText')}`),
+        h('div', { key: 'addRow', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } }, [
+          h('button', {
+            key: 'addText',
+            type: 'button',
+            onClick: addLayer,
+            disabled: spec.layers.length >= 12,
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+          }, `+ ${store.translate('addText')}`),
+          h('button', {
+            key: 'addImage',
+            type: 'button',
+            disabled: spec.layers.length >= 12,
+            onClick: () => { pendingImageLayer.current = null; imageFileInput.current?.click(); },
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+          }, `+ ${store.translate('addImage')}`),
+        ]),
+        h('input', {
+          key: 'imageFile',
+          ref: imageFileInput,
+          type: 'file',
+          accept: 'image/png,image/jpeg,image/webp,image/gif',
+          onChange: (event) => { void onImageFile(event); },
+          style: { display: 'none' },
+        }),
       ]);
 
       const palette = h('div', { key: 'pane-palette', style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [

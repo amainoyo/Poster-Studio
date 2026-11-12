@@ -1007,7 +1007,10 @@ void main(){
       ctx.textBaseline = 'alphabetic';
       if (shadow > 0) {
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
-        ctx.shadowBlur = layer.size * 0.22 * shadow;
+        // sqrt response: linear values are visually dead at the low end,
+        // especially in the scaled-down preview, so small amounts already
+        // read on screen.
+        ctx.shadowBlur = layer.size * 0.22 * Math.sqrt(shadow);
         ctx.shadowOffsetY = layer.size * 0.05;
       }
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing}px`;
@@ -1022,7 +1025,9 @@ void main(){
           if (outline > 0) {
             ctx.lineJoin = 'round';
             ctx.strokeStyle = layer.outlineColor || '#000000';
-            ctx.lineWidth = outline * layer.size * 0.1;
+            // sqrt response: linear values are visually dead at the low end,
+            // so e.g. 25 already paints a ~50% of-max stroke.
+            ctx.lineWidth = Math.sqrt(outline) * layer.size * 0.1;
             ctx.textAlign = 'left';
             ctx.strokeText(text, x, baseline);
           }

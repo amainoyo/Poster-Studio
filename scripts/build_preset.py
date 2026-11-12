@@ -1,64 +1,67 @@
-"""Build the Poster Studio fallback preset (client-side default design)."""
+"""Sync the Poster Studio fallback preset with the live design on the Host.
+
+The preset is the client-side fallback shown before the Host answers, so it
+must match the live specification (same layers, colours and backdrop). Only
+the backdrop image is re-encoded as JPEG to keep the bundled client small.
+"""
 import base64
+import hashlib
+import hmac
 import io
 import json
 import os
+import re
+import time
+import urllib.request
 
 from PIL import Image
 
+HOST = "127.0.0.1"
+PORT = 6800
+CRED = r"C:\Users\amain\.dsh\.credentials.yaml"
 ROOT = r"D:\Deepseek\dsh-poster-studio"
 BG_PNG = r"D:\Deepseek\poster_bg\newyear-2027-bg.png"
 OUT = os.path.join(ROOT, "presets", "newyear-2027.json")
 
+
+def b64u(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def b64u_decode(text: str) -> bytes:
+    pad = "=" * ((4 - len(text) % 4) % 4)
+    return base64.urlsafe_b64decode(text.replace("-", "+").replace("_", "/") + pad)
+
+
+text = open(CRED, encoding="utf-8").read()
+secret = b64u_decode(
+    re.search(r"client-connection/browser-session:.*?secret:\s*(\S+)", text, re.S).group(1).strip("\"'")
+)
+authority = f"{HOST}:{PORT}"
+now = int(time.time() * 1000)
+body = b64u(json.dumps({
+    "version": 1, "authority": authority, "issuedAt": now,
+    "expiresAt": now + 30 * 24 * 3600 * 1000,
+}, separators=(",", ":")).encode("utf-8"))
+signature = b64u(hmac.new(secret, body.encode("ascii"), hashlib.sha256).digest())
+cookie = f"dsh-auth-{b64u(hashlib.sha256(authority.encode()).digest())}=v1.{body}.{signature}"
+
+request = urllib.request.Request(
+    f"http://{authority}/poster-studio/spec",
+    headers={"Cookie": cookie, "accept": "application/json"},
+)
+with urllib.request.urlopen(request, timeout=10) as response:
+    spec = json.loads(response.read().decode("utf-8"))
+
 buf = io.BytesIO()
 Image.open(BG_PNG).convert("RGB").save(buf, "JPEG", quality=84, optimize=True, progressive=True)
-data = buf.getvalue()
-print("background jpeg:", round(len(data) / 1024), "KiB")
-
-preset = {
-    "version": 1,
-    "size": "1080x1920",
-    "layers": [
-        {
-            "id": "title", "text": "新岁序开", "size": 186, "weight": 700, "color": "#ffe9a8",
-            "font": "ma-shan-zheng", "align": "center", "x": 0.5, "y": 0.245,
-            "letterSpacing": 24, "lineHeight": 1.15, "maxWidth": 0.88, "shadow": 0.4,
-        },
-        {
-            "id": "subtitle", "text": "2027 元旦快乐 · HAPPY NEW YEAR 2027", "size": 54, "weight": 700,
-            "color": "#ffffff", "font": "noto-sans-sc", "align": "center", "x": 0.5, "y": 0.325,
-            "letterSpacing": 5, "lineHeight": 1.4, "maxWidth": 0.9,
-        },
-        {
-            "id": "tag", "text": "辞旧迎新 · 万事皆如意", "size": 42, "weight": 500, "color": "#ffd98c",
-            "font": "noto-sans-sc", "align": "center", "x": 0.5, "y": 0.385,
-            "letterSpacing": 10, "lineHeight": 1.5, "maxWidth": 0.9,
-        },
-        {
-            "id": "year", "text": "2027", "size": 400, "weight": 800, "color": "#ffd97d30",
-            "font": "playfair", "align": "center", "x": 0.5, "y": 0.635,
-            "letterSpacing": 8, "lineHeight": 1, "maxWidth": 0.92,
-        },
-        {
-            "id": "footer", "text": "2027.01.01 · 恭贺新禧 · 岁启新程", "size": 38, "weight": 600,
-            "color": "#ffe9a8d0", "font": "noto-sans-sc", "align": "center", "x": 0.5, "y": 0.9,
-            "letterSpacing": 6, "lineHeight": 1.4, "maxWidth": 0.9,
-        },
-    ],
-    "colors": {
-        "c1": "#3a0509", "c2": "#7a0c14", "c3": "#b3121b", "c4": "#ffd97d", "c5": "#4a070c",
-    },
-    "shader": {
-        "scale": 1.4, "offsetX": -1.4, "offsetY": -0.44, "grain": 0.006, "bloom": 0.5,
-        "vignette": 0.32, "lightCore": 0.24, "lightHalo": 0.08, "speed": 0.6, "paused": True,
-    },
-    "background": {
-        "image": "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii"),
-        "opacity": 0.96,
-    },
-}
+spec.setdefault("background", {})["image"] = (
+    "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+)
+spec["background"]["opacity"] = spec["background"].get("opacity", 0.96)
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as handle:
-    json.dump(preset, handle, ensure_ascii=False, indent=2)
+    json.dump(spec, handle, ensure_ascii=False, indent=2)
 print("wrote", OUT, round(os.path.getsize(OUT) / 1024), "KiB")
+print("layers:", [(l["id"], l.get("kind", "text")) for l in spec["layers"]])

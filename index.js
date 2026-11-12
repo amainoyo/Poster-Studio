@@ -197,6 +197,11 @@ function normalizeLayer(value, fallback) {
     italic: typeof source.italic === 'boolean' ? source.italic : Boolean(fallback.italic),
     underline: typeof source.underline === 'boolean' ? source.underline : Boolean(fallback.underline),
     locked: typeof source.locked === 'boolean' ? source.locked : Boolean(fallback.locked),
+    outline: typeof source.outline === 'number' && source.outline >= 0 && source.outline <= 1 ? source.outline : (typeof fallback.outline === 'number' ? fallback.outline : 0),
+    shadow: typeof source.shadow === 'number' && source.shadow >= 0 && source.shadow <= 1 ? source.shadow : (typeof fallback.shadow === 'number' ? fallback.shadow : 0),
+    outlineColor: typeof source.outlineColor === 'string' && /^#[0-9a-f]{6}$/i.test(source.outlineColor)
+      ? source.outlineColor.toLowerCase()
+      : (typeof fallback.outlineColor === 'string' ? fallback.outlineColor.toLowerCase() : '#000000'),
     font: FONT_KEYS.includes(source.font)
       ? source.font
       : (FONT_KEYS.includes(fallback.font) ? fallback.font : ''),
@@ -668,6 +673,9 @@ export function apply(ctx, config = {}) {
                   italic: { type: 'boolean' },
                   underline: { type: 'boolean' },
                   locked: { type: 'boolean' },
+                  outline: { type: 'number', description: 'Text outline strength, 0 to 1.' },
+                  outlineColor: { type: 'string', description: 'Outline color as #rrggbb.' },
+                  shadow: { type: 'number', description: 'Text shadow strength, 0 to 1.' },
                   font: { type: 'string', enum: ['', 'noto-sans-sc', 'noto-serif-sc', 'zcool-xiaowei', 'zcool-huangyou', 'ma-shan-zheng', 'playfair'] },
                   src: { type: 'string' },
                   align: { type: 'string' },

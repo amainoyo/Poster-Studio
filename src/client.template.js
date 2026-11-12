@@ -306,6 +306,9 @@ void main(){
         lock: 'Lock layer',
         unlock: 'Unlock layer',
         lockedLayer: 'This layer is locked and cannot be dragged.',
+        outline: 'Outline',
+        outlineColor: 'Outline color',
+        shadow: 'Shadow',
         weight: 'Weight',
         font: 'Font',
         fontDefault: 'Default',
@@ -380,6 +383,9 @@ void main(){
         lock: '锁定图层',
         unlock: '解锁图层',
         lockedLayer: '图层已锁定，不能拖动。',
+        outline: '描边',
+        outlineColor: '描边颜色',
+        shadow: '阴影',
         libraryCleared: '图库已清空',
         weight: '字重',
         font: '字体',
@@ -521,6 +527,11 @@ void main(){
           if (textColor !== undefined) layer.textColor = textColor;
           if (typeof entry.italic === 'boolean') layer.italic = entry.italic;
           if (typeof entry.underline === 'boolean') layer.underline = entry.underline;
+          if (typeof entry.locked === 'boolean') layer.locked = entry.locked;
+          if (typeof entry.outline === 'number' && Number.isFinite(entry.outline)) layer.outline = Math.min(1, Math.max(0, entry.outline));
+          if (typeof entry.shadow === 'number' && Number.isFinite(entry.shadow)) layer.shadow = Math.min(1, Math.max(0, entry.shadow));
+          const outlineColor = normalizeColor(entry.outlineColor);
+          if (outlineColor !== undefined) layer.outlineColor = outlineColor;
           if (typeof entry.font === 'string') layer.font = entry.font;
           if (merged.some((done) => done.id === layer.id)) continue;
           merged.push(layer);
@@ -878,11 +889,15 @@ void main(){
       let baseline = top + layer.size * 0.78;
       let minX = Number.POSITIVE_INFINITY;
       let maxX = Number.NEGATIVE_INFINITY;
+      const outline = Math.max(0, Number(layer.outline) || 0);
+      const shadow = Math.max(0, Number(layer.shadow) || 0);
       ctx.save();
       ctx.textBaseline = 'alphabetic';
-      ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = layer.size * 0.16;
-      ctx.shadowOffsetY = layer.size * 0.04;
+      if (shadow > 0) {
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = layer.size * 0.22 * shadow;
+        ctx.shadowOffsetY = layer.size * 0.05;
+      }
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing}px`;
       for (const line of lines) {
         const lineWidth = measureLine(ctx, layer, line);
@@ -892,6 +907,13 @@ void main(){
         const lineStart = x;
         for (const [text, latin] of segmentsOf(line)) {
           ctx.font = fontFor(layer, latin);
+          if (outline > 0) {
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = layer.outlineColor || '#000000';
+            ctx.lineWidth = outline * layer.size * 0.1;
+            ctx.textAlign = 'left';
+            ctx.strokeText(text, x, baseline);
+          }
           ctx.fillStyle = layer.color;
           ctx.textAlign = 'left';
           ctx.fillText(text, x, baseline);
@@ -2573,6 +2595,40 @@ void main(){
                 ? layer.color.slice(0, 7)
                 : layer.color.slice(0, 7) + Math.round(value * 255).toString(16).padStart(2, '0'),
             }),
+          }),
+        ]),
+        h('div', { key: 'effects', style: { display: 'flex', gap: 6, alignItems: 'center' } }, [
+          h(Stepper, {
+            key: 'outline',
+            label: store.translate('outline'),
+            stretch: true,
+            value: layer.outline ?? 0,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { outline: value }),
+          }),
+          h('input', {
+            key: 'outlineColor',
+            type: 'color',
+            value: normalizeColor(layer.outlineColor) || '#000000',
+            title: store.translate('outlineColor'),
+            onChange: (event) => patchLayer(layer.id, { outlineColor: event.target.value }),
+            style: { width: 20, height: 20, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+          }),
+          h(Stepper, {
+            key: 'shadow',
+            label: store.translate('shadow'),
+            stretch: true,
+            value: layer.shadow ?? 0,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { shadow: value }),
           }),
         ]),
         h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [

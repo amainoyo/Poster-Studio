@@ -2063,6 +2063,20 @@ void main(){
       const imageFileInput = React.useRef(null);
       const pendingImageLayer = React.useRef(null);
       const bgFileInput = React.useRef(null);
+      const [namePrompt, setNamePrompt] = React.useState(null);
+      const namePromptResolve = React.useRef(null);
+      const namePromptInput = React.useRef(null);
+      const askName = (label, initial) => new Promise((resolve) => {
+        namePromptResolve.current = resolve;
+        setNamePrompt({ label, value: initial ?? '' });
+        setTimeout(() => { try { namePromptInput.current?.focus(); namePromptInput.current?.select(); } catch { /* ignore */ } }, 30);
+      });
+      const finishNamePrompt = (value) => {
+        const resolve = namePromptResolve.current;
+        namePromptResolve.current = null;
+        setNamePrompt(null);
+        if (resolve) resolve(value);
+      };
       const [variants, setVariants] = React.useState([]);
       const [library, setLibrary] = React.useState([]);
       const [position, setPosition] = React.useState(() => {
@@ -3133,11 +3147,11 @@ void main(){
             }
             store.applySpec({ colors: { ...item.colors } });
           },
-          onContextMenu: (event) => {
+          onContextMenu: async (event) => {
             if ((store.customPalettes ?? []).includes(item.name)) return;
             event.preventDefault();
-            const saved = window.prompt(store.translate('savePalette'), item.name);
-            if (saved !== null) void saveCustomPalette(saved.trim() || item.name, item.colors);
+            const saved = await askName(store.translate('savePalette'), item.name);
+            if (saved) void saveCustomPalette(saved, item.colors);
           },
           style: {
             display: 'inline-flex',
@@ -3531,9 +3545,9 @@ void main(){
             key: 'saveVersion',
             type: 'button',
             title: store.translate('saveVersion'),
-            onClick: () => {
-              const name = window.prompt(store.translate('saveVersion'), '');
-              if (name === null) return;
+            onClick: async () => {
+              const name = await askName(store.translate('saveVersion'), '');
+              if (!name) return;
               void renderPng(store.spec).then((blob) => {
                 let thumb = '';
                 const done = (data) => {
@@ -3625,6 +3639,44 @@ void main(){
               boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
             },
           }, sizeTip.text)
+          : null,
+        namePrompt
+          ? h('div', {
+            key: 'namePrompt',
+            onMouseDown: (event) => event.stopPropagation(),
+            style: { position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
+          }, h('div', {
+            style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-2)', boxShadow: '0 12px 32px rgba(0,0,0,0.45)', minWidth: 260, maxWidth: '80%' },
+          }, [
+            h('div', { key: 'label', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary)' } }, namePrompt.label),
+            h('input', {
+              key: 'input',
+              ref: namePromptInput,
+              type: 'text',
+              value: namePrompt.value,
+              autoFocus: true,
+              onChange: (event) => setNamePrompt({ ...namePrompt, value: event.target.value }),
+              onKeyDown: (event) => {
+                if (event.key === 'Enter') finishNamePrompt(namePrompt.value.trim() || null);
+                else if (event.key === 'Escape') finishNamePrompt(null);
+              },
+              style: { padding: '6px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' },
+            }),
+            h('div', { key: 'row', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
+              h('button', {
+                key: 'cancel',
+                type: 'button',
+                onClick: () => finishNamePrompt(null),
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+              }, store.translate('cancel')),
+              h('button', {
+                key: 'ok',
+                type: 'button',
+                onClick: () => finishNamePrompt(namePrompt.value.trim() || null),
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-brand-primary)', background: 'transparent', color: 'var(--dsw-alias-brand-primary)', fontSize: 12, cursor: 'pointer' },
+              }, 'OK'),
+            ]),
+          ]))
           : null,
         versionsOpen
           ? h('div', {

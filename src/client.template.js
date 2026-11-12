@@ -1937,6 +1937,7 @@ void main(){
       const [sizeTip, setSizeTip] = React.useState(null);
       const [versionsOpen, setVersionsOpen] = React.useState(false);
       const [status, setStatus] = React.useState('');
+      const [openTick, setOpenTick] = React.useState(0);
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
       const pendingImageLayer = React.useRef(null);
@@ -2028,7 +2029,21 @@ void main(){
         window.addEventListener('mouseup', up);
       };
 
-      React.useEffect(() => store.subscribe(() => setSpec({ ...store.spec })), []);
+      // The host may keep a null-returning occupant out of commit, so the
+      // panel never returns null when hidden and subscribes synchronously.
+      const openFlag = React.useSyncExternalStore
+        ? React.useSyncExternalStore(store.subscribe, () => embedded || store.open, () => true)
+        : true;
+      React.useEffect(() => {
+        const unsubscribe = store.subscribe(() => {
+          setSpec({ ...store.spec });
+          if (!React.useSyncExternalStore) {
+            setOpenTick((value) => value + 1);
+          }
+        });
+        setOpenTick((value) => value + 1);
+        return unsubscribe;
+      }, []);
 
       // Click anywhere on the sidebar row opens the float; the native
       // capture listener runs before React handlers, so the shell never
@@ -3223,7 +3238,10 @@ void main(){
         })
         : h(PosterStage, { spec });
 
-      if (!embedded && !store.open) return null;
+      if (!embedded && !openFlag && !store.open) {
+        void openTick;
+        return h('div', { key: 'anchor', style: { display: 'none' } });
+      }
 
       return h('div', {
         ref: panelRef,
@@ -3789,6 +3807,8 @@ void main(){
         store.translate = (key) => DICTIONARIES.en[key] ?? key;
       }
 
+      try { window.__posterInjected = true; } catch (error) { void error; }
+
       ctx.slots.inject('shell.overlay', () => ctx.slots.register({
         name: 'shell.overlay',
         id: 'poster-studio',
@@ -3805,6 +3825,9 @@ void main(){
       // Invisible per-session binder: keeps store.sessionId pointing at the
       // live conversation so the studio can queue agent prompts. It renders
       // nothing; the visible entry lives in the sidebar.
+      // Invisible per-session binder: keeps store.sessionId pointing at the
+      // live conversation so the studio can queue agent prompts. It renders
+      // nothing; the visible entry lives in the sidebar.
       ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
         name: 'conversation.input.overlay',
         id: 'poster-studio-session-bind',
@@ -3818,7 +3841,7 @@ void main(){
 
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist',
-        id: 'poster-studio',
+        id: 'poster-studio-row',
         order: 12,
         label: () => store.translate('studio'),
       }, PosterSidebarIcon));

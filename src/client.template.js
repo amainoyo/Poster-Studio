@@ -59,15 +59,32 @@ window.__ModuleLoader__.load({
     const onlineFontLinks = new Map();
 
     /**
+     * The online face a layer needs. The default (official) stack has no
+     * Chinese variable weight: Latin comes from PosterSans, Chinese falls
+     * through to system faces that only carry Regular and Bold on Windows,
+     * which collapses the weight slider into three visible levels. Layering
+     * Noto Sans SC (variable 100..900) under the default stack gives every
+     * weight a real face; the same link is shared with the explicit choice.
+     * @param {Record<string, any>} layer - the layer.
+     * @returns {{ key: string, option: { css: string, label: string, url: string } } | null} the target.
+     */
+    function onlineFontTarget(layer) {
+      if (FONT_OPTIONS[layer.font]) return { key: layer.font, option: FONT_OPTIONS[layer.font] };
+      if (!layer.font || layer.font === 'default') return { key: 'noto-sans-sc', option: FONT_OPTIONS['noto-sans-sc'] };
+      return null;
+    }
+
+    /**
      * Start loading one layer's online font and report when glyphs are ready.
      * @param {Record<string, any>} layer - the layer.
      * @param {() => void} [onReady] - repaint hook while the sheet is still loading.
      * @returns {Promise<void> | null} the glyph download, if it started.
      */
     function ensureOnlineFont(layer, onReady) {
-      const option = FONT_OPTIONS[layer.font];
-      if (!option) return null;
-      let entry = onlineFontLinks.get(layer.font);
+      const target = onlineFontTarget(layer);
+      if (!target) return null;
+      const option = target.option;
+      let entry = onlineFontLinks.get(target.key);
       if (!entry) {
         entry = { ready: false, waiters: new Set() };
         entry.link = document.createElement('link');
@@ -78,7 +95,7 @@ window.__ModuleLoader__.load({
           for (const waiter of entry.waiters) waiter();
           entry.waiters.clear();
         }, { once: true });
-        onlineFontLinks.set(layer.font, entry);
+        onlineFontLinks.set(target.key, entry);
         document.head.appendChild(entry.link);
       }
       if (!entry.ready) {
@@ -99,7 +116,7 @@ window.__ModuleLoader__.load({
     function preloadSpecFonts(spec) {
       const waits = [];
       for (const layer of spec.layers ?? []) {
-        if (!FONT_OPTIONS[layer.font] || !layer.text) continue;
+        if (!onlineFontTarget(layer) || !layer.text) continue;
         waits.push(new Promise((resolve) => {
           const pending = ensureOnlineFont(layer, resolve);
           if (pending) pending.then(resolve);
@@ -1154,10 +1171,11 @@ void main(){
       const layout = [];
       const fontState = loadedFonts ?? new Set();
       for (const layer of spec.layers) {
-        if (layer.text && FONT_OPTIONS[layer.font] && onImageReady && !fontState.has(layer.font)) {
+        const fontTarget = onlineFontTarget(layer);
+        if (layer.text && fontTarget && onImageReady && !fontState.has(fontTarget.key)) {
           const pending = ensureOnlineFont(layer, onImageReady);
           if (pending) {
-            fontState.add(layer.font);
+            fontState.add(fontTarget.key);
             pending.then(onImageReady);
           }
         }

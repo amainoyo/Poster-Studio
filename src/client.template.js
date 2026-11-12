@@ -581,6 +581,9 @@ void main(){
           const layer = { ...fallback };
           if (typeof entry.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(entry.id)) layer.id = entry.id;
           if (typeof entry.text === 'string') layer.text = entry.text;
+          // Tool/import payloads sometimes carry bare numbers ("2027" → 2027);
+          // keep the design intent instead of silently dropping the layer text.
+          else if (typeof entry.text === 'number' && Number.isFinite(entry.text)) layer.text = String(entry.text);
           if (typeof entry.size === 'number' && Number.isFinite(entry.size)) layer.size = Math.min(2000, Math.max(8, Math.round(entry.size)));
           if (typeof entry.weight === 'number' && entry.weight >= 100 && entry.weight <= 900) layer.weight = Math.round(entry.weight);
           if (entry.align === 'left' || entry.align === 'center' || entry.align === 'right') layer.align = entry.align;
@@ -620,7 +623,7 @@ void main(){
      * @returns {Record<string, any>} the default specification.
      */
     function defaultSpec() {
-      return {
+      const base = {
         version: 1,
         size: '1080x1350',
         layers: [
@@ -642,6 +645,11 @@ void main(){
           paused: false,
         },
       };
+      // The Host owns the live design. Until its route answers, the studio
+      // opens on the first bundled preset instead of the placeholder copy.
+      const presets = __FALLBACK_PRESET__;
+      if (!Array.isArray(presets) || presets.length === 0) return base;
+      return mergeSpec(base, JSON.parse(JSON.stringify(presets[0])));
     }
 
     /**
@@ -2360,6 +2368,13 @@ void main(){
         try {
           const blob = await renderPng(store.spec);
           if (!blob) throw new Error('the poster could not be rendered');
+          // Hand the rendered poster to the Host as well, so the agent-side
+          // export tool can deliver the very same PNG.
+          void fetch('/poster-studio/export', {
+            method: 'POST',
+            headers: { 'content-type': 'image/png' },
+            body: blob,
+          }).catch(() => { /* the local download below is the primary path */ });
           const suggested = `poster-${spec.size}.png`;
           if (typeof window.showSaveFilePicker === 'function') {
             // Native Save As dialog: the user picks the folder and file name.

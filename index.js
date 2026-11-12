@@ -189,8 +189,10 @@ function normalizeLayer(value, fallback) {
   const align = source.align === 'left' || source.align === 'right' ? source.align : fallback.align;
   return {
     id: typeof source.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(source.id) ? source.id : fallback.id,
-    text: typeof source.text === 'string' ? source.text : fallback.text,
-    size: Math.round(clamp(source.size, 8, 400, fallback.size)),
+    text: typeof source.text === 'string'
+      ? source.text
+      : (typeof source.text === 'number' && Number.isFinite(source.text) ? String(source.text) : fallback.text),
+    size: Math.round(clamp(source.size, 8, 2000, fallback.size)),
     weight: typeof source.weight === 'number' && source.weight >= 100 && source.weight <= 900
       ? Math.round(source.weight)
       : fallback.weight,
@@ -568,10 +570,15 @@ export function apply(ctx, config = {}) {
     }
   })();
 
-  const connection = ctx.get('connection');
-  const webServer = ctx.get('webServer');
+  // The Host routes must be mounted once the web server and the client
+  // connection exist. Reading the services once at load time silently skipped
+  // every route (the studio then showed the client-side default design), so
+  // the registration waits for both services instead.
+  ctx.inject(['connection', 'webServer'], (child) => {
+  const connection = child.connection;
+  const webServer = child.webServer;
 
-  ctx.effect(() => {
+  child.effect(() => {
     if (!webServer) return undefined;
     const disposeSpec = webServer.register({
       kind: 'exact',
@@ -867,6 +874,7 @@ export function apply(ctx, config = {}) {
       disposeVersionOne();
       disposePalettes();
     };
+  });
   });
 
   ctx.effect(() => {

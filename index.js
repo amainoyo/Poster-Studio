@@ -379,6 +379,47 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+const IMAGE_MIME = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+const MAX_BG_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Let an agent give a local file path for the backdrop image: read the file
+ * and embed it as a data URL so every render path keeps seeing a data URL.
+ * @param {Record<string, any>} patch - the tool arguments.
+ * @returns {Promise<Record<string, any>>} patch with background.image resolved.
+ */
+async function resolveBackground(patch) {
+  const bg = patch.background;
+  if (!bg || typeof bg !== 'object' || typeof bg.image !== 'string') return patch;
+  const value = bg.image.trim();
+  if (value.length === 0 || value.startsWith('data:')) return patch;
+  const path = value.replace(/^file:\/\/\/?/i, '');
+  let bytes;
+  try {
+    bytes = await readFile(path);
+  } catch {
+    throw new Error(
+      `poster background: cannot read image file "${path}" — pass an absolute path to a jpg/png/webp/gif image, `
+      + 'an existing data:image/… URL, or an empty string to remove the backdrop image.',
+    );
+  }
+  if (bytes.length > MAX_BG_BYTES) {
+    throw new Error(
+      `poster background: "${path}" is ${(bytes.length / 1048576).toFixed(1)} MB, over the 4 MB limit — `
+      + 'downscale or recompress it first (a ~1920px JPEG under 4 MB works well).',
+    );
+  }
+  const ext = (path.match(/\.[a-z]+$/i) ?? [''])[0].toLowerCase();
+  const mime = IMAGE_MIME[ext] ?? 'image/jpeg';
+  return { ...patch, background: { ...bg, image: `data:${mime};base64,${bytes.toString('base64')}` } };
+}
+
 /**
  * Register the poster specification, export route, and tools.
  * @param {Record<string, any>} ctx - plugin-owned Host context.
@@ -811,10 +852,11 @@ export function apply(ctx, config = {}) {
     const disposeTool = ctx.tools.register({
       name: 'poster_design',
       description:
-        'Design the poster shown by the Poster Studio plugin. Use it when the user asks for a poster, '
-        + 'wants the poster title, subtitle, footer, canvas size, shader colours, or backdrop tuning '
-        + 'changed, or asks what the poster currently shows. Omit a field to keep its current value; '
-        + 'pass reset to restore the default design.',
+        'Design the poster shown in the Poster Studio panel (海报创作). Use it whenever the user mentions '
+        + 'a poster or 海报 in any language: making or changing one, setting its title (标题), subtitle, '
+        + 'footer, canvas size, colours (配色), background image, or backdrop tuning, or asking what the '
+        + 'poster currently shows. Changes apply live to the floating poster panel. '
+        + 'Omit a field to keep its current value; pass reset to restore the default design.',
       parameters: {
         title: {
           type: 'string',
@@ -853,7 +895,7 @@ export function apply(ctx, config = {}) {
           required: false,
           description: 'Optional backdrop image layered over the shader. Set image to an empty string to remove it.',
           properties: {
-            image: { type: 'string', required: false, description: 'A data:image/… URL, or empty string to remove the backdrop image.' },
+            image: { type: 'string', required: false, description: 'A data:image/… URL, or a local image file path (jpg/png/webp/gif, up to 4 MB) which is embedded automatically, or an empty string to remove the backdrop image.' },
             opacity: { type: 'number', required: false, description: 'Backdrop image opacity, 0 to 1.' },
           },
         },
@@ -981,7 +1023,7 @@ export function apply(ctx, config = {}) {
             background: { ...(base.background ?? {}) },
           };
         } else {
-          spec = applyPatch(spec, patch);
+          spec = applyPatch(spec, await resolveBackground(patch));
         }
         persist();
         return spec;
@@ -1037,9 +1079,10 @@ export function apply(ctx, config = {}) {
       const dispose = ctx.tools.register({
         name: 'poster_export',
         description:
-          'Deliver the poster image the Poster Studio plugin rendered. Use it when the user asks for the '
-          + 'poster as a file or image. The file is copied into the session working directory and the path '
-          + 'is returned so it can be presented to the user.',
+          'Deliver the poster image the Poster Studio panel rendered (导出海报). Use it when the user asks '
+          + 'for the poster as a file or image, or asks to export or save the poster (导出/保存海报). '
+          + 'The file is copied into the session working directory and the path is returned so it can be '
+          + 'presented to the user.',
         parameters: {
           name: {
             type: 'string',

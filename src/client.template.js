@@ -581,7 +581,7 @@ void main(){
           const layer = { ...fallback };
           if (typeof entry.id === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(entry.id)) layer.id = entry.id;
           if (typeof entry.text === 'string') layer.text = entry.text;
-          if (typeof entry.size === 'number' && Number.isFinite(entry.size)) layer.size = Math.min(400, Math.max(8, Math.round(entry.size)));
+          if (typeof entry.size === 'number' && Number.isFinite(entry.size)) layer.size = Math.min(2000, Math.max(8, Math.round(entry.size)));
           if (typeof entry.weight === 'number' && entry.weight >= 100 && entry.weight <= 900) layer.weight = Math.round(entry.weight);
           if (entry.align === 'left' || entry.align === 'center' || entry.align === 'right') layer.align = entry.align;
           if (typeof entry.x === 'number' && entry.x >= 0 && entry.x <= 1) layer.x = entry.x;
@@ -2697,7 +2697,7 @@ void main(){
               ]),
             ]),
             h('div', { key: 'row', style: { display: 'flex', gap: 10 } }, [
-              h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 200, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
+              h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 2000, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
             ]),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
@@ -2852,7 +2852,7 @@ void main(){
             label: store.translate('fontSize'),
             value: layer.size,
             min: 10,
-            max: 200,
+            max: 2000,
             step: 1,
             onChange: (value) => patchLayer(layer.id, { size: value }),
           }),

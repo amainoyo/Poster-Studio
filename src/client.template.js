@@ -3173,29 +3173,6 @@ void main(){
           }),
           h('span', { key: 'name' }, key),
         ]))),
-        h('div', { key: 'palettes', style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, PALETTES.map((item) => h('button', {
-          key: item.name,
-          type: 'button',
-          onClick: () => store.applySpec({ colors: { ...item.colors } }),
-          style: {
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '4px 8px',
-            borderRadius: 7,
-            border: '1px solid var(--dsw-alias-border-l1)',
-            background: 'transparent',
-            color: 'var(--dsw-alias-label-secondary)',
-            fontSize: 11,
-            cursor: 'pointer',
-          },
-        }, [
-          h('span', {
-            key: 'dot',
-            style: { width: 10, height: 10, borderRadius: 3, background: item.colors.c3, border: `1px solid ${item.colors.c4}` },
-          }),
-          item.name,
-        ]))),
       ]);
 
       const backdrop = h('div', { key: 'pane-backdrop', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } }, [

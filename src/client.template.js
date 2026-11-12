@@ -312,6 +312,10 @@ void main(){
         bgImage: 'Background image',
         bgImageRemove: 'Remove',
         bgOpacity: 'Opacity',
+        versions: 'Versions',
+        saveVersion: 'Save this design as a named version',
+        versionSaved: 'Version saved',
+        versionLoaded: 'Version loaded',
         weight: 'Weight',
         font: 'Font',
         fontDefault: 'Default',
@@ -392,6 +396,10 @@ void main(){
         bgImage: '背景图',
         bgImageRemove: '移除背景',
         bgOpacity: '背景透明度',
+        versions: '历史版本',
+        saveVersion: '把当前设计保存为命名版本',
+        versionSaved: '版本已保存',
+        versionLoaded: '版本已载入',
         libraryCleared: '图库已清空',
         weight: '字重',
         font: '字体',
@@ -596,6 +604,9 @@ void main(){
       lastRemote: '',
       history: [],
       future: [],
+      /** Named snapshots kept across sessions. */
+      versions: [],
+      versionsLoaded: false,
       library: [],
       variants: [],
       listeners: new Set(),
@@ -681,6 +692,54 @@ void main(){
         this.spec = JSON.parse(next);
         this.emit();
         void this.push();
+      },
+      /** Fetch named versions from the Host once. */
+      async loadVersions() {
+        if (this.versionsLoaded || !this.remote) return;
+        try {
+          const response = await fetch('/poster-studio/versions');
+          if (response.ok) {
+            const data = await response.json();
+            this.versions = Array.isArray(data.versions) ? data.versions : [];
+            this.versionsLoaded = true;
+            this.emit();
+          }
+        } catch { /* versions stay unavailable */ }
+      },
+      /**
+       * Save the current specification as a named version.
+       * @param {string} name - version name.
+       * @returns {Promise<boolean>} whether the Host accepted it.
+       */
+      async saveVersion(name) {
+        try {
+          const response = await fetch('/poster-studio/versions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ name, spec: this.spec }),
+          });
+          if (!response.ok) return false;
+          const data = await response.json();
+          this.versions = Array.isArray(data.versions) ? data.versions : this.versions;
+          this.versionsLoaded = true;
+          this.emit();
+          return true;
+        } catch { return false; }
+      },
+      /**
+       * Remove one named version.
+       * @param {string} id - version id.
+       * @returns {Promise<void>} resolves when the Host replied.
+       */
+      async deleteVersion(id) {
+        try {
+          const response = await fetch(`/poster-studio/version?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (response.ok) {
+            const data = await response.json();
+            this.versions = Array.isArray(data.versions) ? data.versions : this.versions;
+            this.emit();
+          }
+        } catch { /* keep the list */ }
       },
       /**
        * Send the current specification to the Host.
@@ -3223,6 +3282,43 @@ void main(){
               cursor: 'pointer',
             },
           }, store.translate('exportAll')),
+          h('select', {
+            key: 'versions',
+            title: store.translate('versions'),
+            value: '',
+            onFocus: () => { void store.loadVersions(); },
+            onChange: (event) => {
+              const id = event.target.value;
+              event.target.value = '';
+              if (!id) return;
+              void (async () => {
+                try {
+                  const response = await fetch(`/poster-studio/version?id=${encodeURIComponent(id)}`);
+                  if (!response.ok) return;
+                  const data = await response.json();
+                  if (data && data.spec) {
+                    store.applySpec(data.spec);
+                    setStatus(store.translate('versionLoaded'));
+                  }
+                } catch { /* the load failed silently */ }
+              })();
+            },
+            style: { padding: '4px 6px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, maxWidth: 110, outline: 'none' },
+          }, [
+            h('option', { key: '', value: '' }, store.translate('versions')),
+            ...(store.versions ?? []).map((entry) => h('option', { key: entry.id, value: entry.id }, entry.name)),
+          ]),
+          h('button', {
+            key: 'saveVersion',
+            type: 'button',
+            title: store.translate('saveVersion'),
+            onClick: () => {
+              const name = window.prompt(store.translate('saveVersion'), '');
+              if (name === null) return;
+              void store.saveVersion(name).then((ok) => { if (ok) setStatus(store.translate('versionSaved')); });
+            },
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+          }, '💾'),
           h('button', {
             key: 'undo',
             type: 'button',

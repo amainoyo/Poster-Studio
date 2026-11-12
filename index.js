@@ -394,6 +394,31 @@ export function apply(ctx, config = {}) {
     ?? join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'poster-studio');
   const exportDir = join(profileRoot, 'exports');
   const statePath = join(profileRoot, 'spec.json');
+  const versionsPath = join(profileRoot, 'versions.json');
+  const versionsDir = join(profileRoot, 'versions');
+
+  /**
+   * Read the persisted version index.
+   * @returns {Promise<Array<Record<string, any>>>} stored version entries.
+   */
+  const readVersions = async () => {
+    try {
+      const parsed = JSON.parse(await readFile(versionsPath, 'utf8'));
+      return Array.isArray(parsed) ? parsed.filter((entry) => entry && typeof entry.id === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
+
+  /**
+   * Persist the version index.
+   * @param {Array<Record<string, any>>} entries - version entries.
+   * @returns {Promise<void>} resolves when written.
+   */
+  const writeVersions = async (entries) => {
+    await mkdir(profileRoot, { recursive: true });
+    await writeFile(versionsPath, JSON.stringify(entries, null, 2), 'utf8');
+  };
 
   /**
    * Write the specification to the profile directory.
@@ -592,10 +617,102 @@ export function apply(ctx, config = {}) {
       },
     });
 
+    const disposeVersions = webServer.register({
+      kind: 'exact',
+      path: '/poster-studio/versions',
+      handler: async (req, res) => {
+        const rejection = connection?.requestRejection(req);
+        if (rejection !== undefined) {
+          res.statusCode = rejection;
+          res.end();
+          return;
+        }
+        if (req.method === 'GET') {
+          sendJson(res, 200, { versions: await readVersions() });
+          return;
+        }
+        if (req.method === 'POST') {
+          const body = await readBoundedBytes(req);
+          if (body === null) {
+            sendJson(res, 413, { message: 'version payload too large' });
+            return;
+          }
+          let payload;
+          try {
+            payload = JSON.parse(body.toString('utf8'));
+          } catch {
+            sendJson(res, 400, { message: 'version payload must be a JSON object' });
+            return;
+          }
+          if (!payload || typeof payload !== 'object' || !payload.spec) {
+            sendJson(res, 400, { message: 'version payload needs a spec' });
+            return;
+          }
+          const name = typeof payload.name === 'string' ? payload.name.slice(0, 40) : '';
+          const entry = {
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            name: name.length > 0 ? name : new Date().toLocaleString(),
+            savedAt: new Date().toISOString(),
+          };
+          await mkdir(versionsDir, { recursive: true });
+          await writeFile(join(versionsDir, `${entry.id}.json`), JSON.stringify(normalizeSpec(payload.spec, base)), 'utf8');
+          const entries = [entry, ...await readVersions()].slice(0, 50);
+          await writeVersions(entries);
+          sendJson(res, 200, { versions: entries });
+          return;
+        }
+        res.statusCode = 405;
+        res.setHeader('allow', 'GET, POST');
+        res.end();
+      },
+    });
+
+    const disposeVersionOne = webServer.register({
+      kind: 'exact',
+      path: '/poster-studio/version',
+      handler: async (req, res) => {
+        const rejection = connection?.requestRejection(req);
+        if (rejection !== undefined) {
+          res.statusCode = rejection;
+          res.end();
+          return;
+        }
+        const query = new URL(req.url ?? '', 'http://localhost').searchParams.get('id') ?? '';
+        const safe = query.replace(/[^A-Za-z0-9_-]/g, '');
+        if (safe.length === 0) {
+          res.statusCode = 400;
+          res.end();
+          return;
+        }
+        if (req.method === 'GET') {
+          try {
+            const data = await readFile(join(versionsDir, `${safe}.json`));
+            sendJson(res, 200, { spec: JSON.parse(data.toString('utf8')) });
+          } catch {
+            res.statusCode = 404;
+            res.end();
+          }
+          return;
+        }
+        if (req.method === 'DELETE') {
+          await rm(join(versionsDir, `${safe}.json`), { force: true }).catch(() => {});
+          const entries = (await readVersions()).filter((entry) => entry.id !== safe);
+          await writeVersions(entries);
+          sendJson(res, 200, { versions: entries });
+          return;
+        }
+        res.statusCode = 405;
+        res.setHeader('allow', 'GET, DELETE');
+        res.end();
+      },
+    });
+
     return () => {
       disposeSpec();
       disposeExport();
       disposeLibrary();
+      disposeVersions();
+      disposeVersionOne();
     };
   });
 

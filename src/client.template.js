@@ -1563,25 +1563,33 @@ void main(){
         return () => observer.disconnect();
       }, []);
 
+      const keys = React.useMemo(() => {
+        const list = [...SIZE_ORDER];
+        const custom = props.spec && props.spec.size;
+        if (typeof custom === 'string' && CUSTOM_SIZE_RE.test(custom) && !SIZE_ORDER.includes(custom)) list.push(custom);
+        return list;
+      }, [props.spec]);
+
       const specs = React.useMemo(() => {
         const map = {};
-        for (const key of SIZE_ORDER) map[key] = { ...props.spec, size: key };
+        for (const key of keys) map[key] = { ...props.spec, size: key };
         return map;
-      }, [props.spec]);
+      }, [props.spec, keys]);
 
       const [layouts, setLayouts] = React.useState({});
 
       const columns = 3;
       const gap = 6;
       const pad = 8;
+      const rows = keys.length > columns * 2 ? 3 : 2;
       const cellW = Math.max(96, (box.width - pad * 2 - gap * (columns - 1)) / columns);
-      const cellH = Math.max(150, (box.height - pad * 2 - gap) / 2);
+      const cellH = Math.max(150, (box.height - pad * 2 - gap * (rows - 1)) / rows);
 
       return h('div', {
         ref: boxRef,
-        style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gridTemplateRows: 'repeat(2, minmax(0, 1fr))', gap, padding: pad, overflowY: 'auto' },
-      }, SIZE_ORDER.map((key) => {
-        const item = SIZES[key];
+        style: { flex: '1 1 auto', minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, gap, padding: pad, overflowY: 'auto' },
+      }, keys.map((key) => {
+        const item = parseSize(key);
         const maxW = cellW - 16;
         const maxH = cellH - 16;
         const fit = Math.min(maxW / item.width, maxH / item.height);

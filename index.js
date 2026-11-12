@@ -278,12 +278,20 @@ function normalizeSpec(value, base) {
     shader.speed = clamp(source.shader.speed, 0, 4, shader.speed);
     shader.paused = typeof source.shader.paused === 'boolean' ? source.shader.paused : shader.paused;
   }
+  const background = { ...(base.background ?? {}) };
+  if (source.background && typeof source.background === 'object') {
+    if (typeof source.background.image === 'string' && (source.background.image.length === 0 || source.background.image.startsWith('data:image/'))) {
+      background.image = source.background.image;
+    }
+    background.opacity = clamp(source.background.opacity, 0, 1, background.opacity ?? 1);
+  }
   return {
     version: SPEC_VERSION,
     size: normalizeSizeKey(source.size, base.size),
     layers,
     colors,
     shader,
+    background,
   };
 }
 
@@ -305,7 +313,11 @@ function applyPatch(base, patch) {
     layers: base.layers.map((layer) => ({ ...layer })),
     colors: { ...base.colors },
     shader: { ...base.shader },
+    background: { ...(base.background ?? {}) },
   };
+  if (patch.background && typeof patch.background === 'object') {
+    next.background = normalizeSpec({ background: patch.background, size: base.size }, { ...base, background: next.background }).background;
+  }
   if (patch.size !== undefined) {
     const sizeKey = normalizeSizeKey(patch.size, '');
     if (sizeKey) next.size = sizeKey;
@@ -628,6 +640,15 @@ export function apply(ctx, config = {}) {
             c5: { type: 'string', required: false, description: 'Shading colour.' },
           },
         },
+        background: {
+          type: 'object',
+          required: false,
+          description: 'Optional backdrop image layered over the shader. Set image to an empty string to remove it.',
+          properties: {
+            image: { type: 'string', required: false, description: 'A data:image/… URL, or empty string to remove the backdrop image.' },
+            opacity: { type: 'number', required: false, description: 'Backdrop image opacity, 0 to 1.' },
+          },
+        },
         shader: {
           type: 'object',
           required: false,
@@ -722,6 +743,15 @@ export function apply(ctx, config = {}) {
                 paused: { type: 'boolean' },
               },
             },
+            background: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['image', 'opacity'],
+              properties: {
+                image: { type: 'string' },
+                opacity: { type: 'number' },
+              },
+            },
           },
         },
         render: (_args, value) => {
@@ -740,6 +770,7 @@ export function apply(ctx, config = {}) {
             layers: base.layers.map((layer) => ({ ...layer })),
             colors: { ...base.colors },
             shader: { ...base.shader },
+            background: { ...(base.background ?? {}) },
           };
         } else {
           spec = applyPatch(spec, patch);
@@ -777,6 +808,7 @@ export function apply(ctx, config = {}) {
             layers: base.layers.map((layer) => ({ ...layer })),
             colors: { ...base.colors },
             shader: { ...base.shader },
+            background: { ...(base.background ?? {}) },
           }
           : applyPatch(spec, patch);
         persist();

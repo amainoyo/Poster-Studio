@@ -309,6 +309,9 @@ void main(){
         outline: 'Outline',
         outlineColor: 'Outline color',
         shadow: 'Shadow',
+        bgImage: 'Background image',
+        bgImageRemove: 'Remove',
+        bgOpacity: 'Opacity',
         weight: 'Weight',
         font: 'Font',
         fontDefault: 'Default',
@@ -386,6 +389,9 @@ void main(){
         outline: '描边',
         outlineColor: '描边颜色',
         shadow: '阴影',
+        bgImage: '背景图',
+        bgImageRemove: '移除背景',
+        bgOpacity: '背景透明度',
         libraryCleared: '图库已清空',
         weight: '字重',
         font: '字体',
@@ -480,8 +486,17 @@ void main(){
         layers: base.layers.map((layer) => ({ ...layer })),
         colors: { ...base.colors },
         shader: { ...base.shader },
+        background: { ...(base.background ?? {}) },
       };
       if (!patch || typeof patch !== 'object') return next;
+      if (patch.background && typeof patch.background === 'object') {
+        if (typeof patch.background.image === 'string' && patch.background.image.startsWith('data:image/')) {
+          next.background.image = patch.background.image;
+        }
+        if (typeof patch.background.opacity === 'number' && Number.isFinite(patch.background.opacity)) {
+          next.background.opacity = Math.min(1, Math.max(0, patch.background.opacity));
+        }
+      }
       if (typeof patch.size === 'string' && (SIZES[patch.size] || CUSTOM_SIZE_RE.test(patch.size))) next.size = patch.size;
       if (patch.colors && typeof patch.colors === 'object') {
         for (const key of COLOR_KEYS) {
@@ -1015,6 +1030,9 @@ void main(){
       const sources = (spec.layers ?? [])
         .filter((layer) => layer.kind === 'image' && typeof layer.src === 'string' && layer.src.length > 0)
         .map((layer) => layer.src);
+      if (spec.background && typeof spec.background.image === 'string' && spec.background.image.length > 0) {
+        sources.push(spec.background.image);
+      }
       return Promise.all(sources.map((src) => new Promise((resolve) => {
         if (cachedImage(src, resolve)) resolve();
       }))).then(() => undefined);
@@ -1236,6 +1254,38 @@ void main(){
         applyTuning();
         gl.viewport(0, 0, width, height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        drawBgImage();
+      };
+
+      let bgSrc = '';
+      let bgImage = null;
+
+      /** Composite the optional background image over the shader at cover fit. */
+      const drawBgImage = () => {
+        const src = (spec.background && spec.background.image) || '';
+        const alpha = Math.min(1, Math.max(0, Number((spec.background && spec.background.opacity !== undefined ? spec.background.opacity : 1))));
+        if (!src || alpha <= 0.01) return;
+        if (src !== bgSrc) {
+          bgSrc = src;
+          bgImage = cachedImage(src, repaint);
+        }
+        if (!bgImage) return;
+        const ratio = bgImage.naturalHeight / bgImage.naturalWidth;
+        const box = width / height;
+        let scale;
+        if (ratio > box) {
+          scale = (width * ratio / height);
+        } else {
+          scale = (height / ratio) / width;
+        }
+        const drawWidth = width / scale;
+        const drawHeight = drawWidth * ratio;
+        const ctx = background.getContext('2d');
+        if (!ctx) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(bgImage, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+        ctx.restore();
       };
 
       const repaint = () => {
@@ -2007,6 +2057,34 @@ void main(){
           });
         } catch (error) {
           console.warn('poster-studio: the image could not be added', error);
+          setStatus(String(error && error.message ? error.message : error));
+        }
+      };
+
+      const onBackgroundFile = async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+          const image = new Image();
+          const objectUrl = URL.createObjectURL(file);
+          await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = () => reject(new Error('the image could not be decoded'));
+            image.src = objectUrl;
+          });
+          const maxSide = 2400;
+          const scale = Math.min(1, maxSide / Math.max(1, image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(objectUrl);
+          const src = canvas.toDataURL('image/jpeg', 0.85);
+          store.applySpec({ background: { image: src, opacity: spec.background?.opacity ?? 1 } });
+          setStatus(store.translate('bgImage') + ' ✓');
+        } catch (error) {
+          console.warn('poster-studio: the background image could not be loaded', error);
           setStatus(String(error && error.message ? error.message : error));
         }
       };
@@ -2811,6 +2889,41 @@ void main(){
             cursor: 'pointer',
           },
         }, spec.shader.paused ? '▶' : '❚❚'),
+        h('div', {
+          key: 'bgRow',
+          style: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 },
+        }, [
+          h('button', {
+            key: 'bgUpload',
+            type: 'button',
+            onClick: () => bgFileInput.current && bgFileInput.current.click(),
+            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer' },
+          }, store.translate('bgImage')),
+          spec.background && spec.background.image ? h('button', {
+            key: 'bgRemove',
+            type: 'button',
+            onClick: () => store.applySpec({ background: { image: '', opacity: spec.background?.opacity ?? 1 } }),
+            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, cursor: 'pointer' },
+          }, store.translate('bgImageRemove')) : null,
+          spec.background && spec.background.image ? h(Slider, {
+            key: 'bgOpacity',
+            label: store.translate('bgOpacity'),
+            stretch: true,
+            value: spec.background.opacity ?? 1,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            onChange: (value) => store.applySpec({ background: { image: spec.background.image, opacity: value } }),
+          }) : null,
+          h('input', {
+            key: 'bgFile',
+            ref: bgFileInput,
+            type: 'file',
+            accept: 'image/png,image/jpeg,image/webp',
+            onChange: (event) => { void onBackgroundFile(event); },
+            style: { display: 'none' },
+          }),
+        ]),
       ]);
 
       const variantsView = variants.length === 0
@@ -2883,6 +2996,7 @@ void main(){
 
       const tipRaf = React.useRef(0);
       const tipPos = React.useRef(null);
+      const bgFileInput = React.useRef(null);
 
       /**
        * Position the hover size tooltip, throttled to one animation frame.

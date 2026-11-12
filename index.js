@@ -954,7 +954,7 @@ export function apply(ctx, config = {}) {
             background: {
               type: 'object',
               additionalProperties: false,
-              required: ['image', 'opacity'],
+              required: [],
               properties: {
                 image: { type: 'string' },
                 opacity: { type: 'number' },

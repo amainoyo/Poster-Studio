@@ -421,6 +421,27 @@ async function resolveBackground(patch) {
 }
 
 /**
+ * Copy a spec for agent-visible output with embedded images redacted so a
+ * 35 KB base64 blob never floods the model context; the poster panel keeps
+ * the real data through spec.json.
+ * @param {Record<string, any>} value - the poster specification.
+ * @returns {Record<string, any>} agent-safe summary copy.
+ */
+function summarizeForAgent(value) {
+  const redact = (text) => `<image dataURL, ~${Math.round(text.length / 1024)} KB, shown in the poster panel>`;
+  const copy = {
+    ...value,
+    layers: (value.layers ?? []).map((layer) => (
+      typeof layer.src === 'string' && layer.src.length > 120 ? { ...layer, src: redact(layer.src) } : layer
+    )),
+  };
+  if (copy.background && typeof copy.background.image === 'string' && copy.background.image.length > 120) {
+    copy.background = { ...copy.background, image: redact(copy.background.image) };
+  }
+  return copy;
+}
+
+/**
  * Register the poster specification, export route, and tools.
  * @param {Record<string, any>} ctx - plugin-owned Host context.
  * @param {Record<string, unknown>} config - plugin configuration.
@@ -1005,11 +1026,21 @@ export function apply(ctx, config = {}) {
           },
         },
         render: (_args, value) => {
-          const headline = value.layers?.find((layer) => layer.id === 'title');
-          const subtitle = value.layers?.find((layer) => layer.id === 'subtitle');
-          const parts = [`Poster ${value.size}: ${headline?.text ?? ''}`];
-          if (subtitle?.text) parts.push(subtitle.text);
-          return [{ type: 'text', text: parts.join(' — ') }];
+          const get = (id) => value.layers?.find((layer) => layer.id === id);
+          const parts = [`Poster ${value.size}`];
+          const headline = get('title');
+          if (headline?.text) parts.push(`title "${headline.text}"`);
+          const subtitle = get('subtitle');
+          if (subtitle?.text) parts.push(`subtitle "${subtitle.text}"`);
+          const footer = get('footer');
+          if (footer?.text) parts.push(`footer "${footer.text}"`);
+          const extra = (value.layers ?? []).filter((layer) => !['title', 'subtitle', 'footer'].includes(layer.id));
+          if (extra.length > 0) parts.push(`${extra.length} extra layer(s): ${extra.map((layer) => `${layer.id ?? ''}(${layer.kind ?? 'text'})`).join(', ')}`);
+          parts.push(value.background?.image
+            ? `backdrop: image, opacity ${value.background.opacity ?? 1}`
+            : 'backdrop: shader only');
+          parts.push(`colours ${(value.colors ? Object.values(value.colors).join(' ') : '')}`);
+          return [{ type: 'text', text: parts.join(' · ') }];
         },
       },
       async execute(args) {
@@ -1026,7 +1057,7 @@ export function apply(ctx, config = {}) {
           spec = applyPatch(spec, await resolveBackground(patch));
         }
         persist();
-        return spec;
+        return summarizeForAgent(spec);
       },
       presentCall(args) {
         const title = args && typeof args.title === 'string' ? args.title.trim() : '';
@@ -1042,7 +1073,7 @@ export function apply(ctx, config = {}) {
       },
       handler(invocation) {
         const raw = String(invocation.rawInput ?? '').trim();
-        if (raw.length === 0) return { kind: 'success', text: JSON.stringify(spec) };
+        if (raw.length === 0) return { kind: 'success', text: JSON.stringify(summarizeForAgent(spec)) };
         let patch;
         try {
           patch = JSON.parse(raw);
@@ -1062,7 +1093,7 @@ export function apply(ctx, config = {}) {
           }
           : applyPatch(spec, patch);
         persist();
-        return { kind: 'success', text: JSON.stringify(spec) };
+        return { kind: 'success', text: JSON.stringify(summarizeForAgent(spec)) };
       },
     });
 

@@ -548,7 +548,8 @@ void main(){
       };
       if (!patch || typeof patch !== 'object') return next;
       if (patch.background && typeof patch.background === 'object') {
-        if (typeof patch.background.image === 'string' && patch.background.image.startsWith('data:image/')) {
+        // An empty string is a valid payload: it removes the backdrop image.
+        if (typeof patch.background.image === 'string' && (patch.background.image.length === 0 || patch.background.image.startsWith('data:image/'))) {
           next.background.image = patch.background.image;
         }
         if (typeof patch.background.opacity === 'number' && Number.isFinite(patch.background.opacity)) {
@@ -595,7 +596,7 @@ void main(){
           if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
           if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr' || entry.kind === 'badge') layer.kind = entry.kind;
-          if (typeof entry.src === 'string' && entry.src.startsWith('data:image/')) layer.src = entry.src;
+          if (typeof entry.src === 'string' && (entry.src.length === 0 || entry.src.startsWith('data:image/'))) layer.src = entry.src;
           if (typeof entry.width === 'number' && entry.width >= 0.02 && entry.width <= 1.5) layer.width = entry.width;
           if (typeof entry.opacity === 'number' && entry.opacity >= 0 && entry.opacity <= 1) layer.opacity = entry.opacity;
           if (typeof entry.value === 'string' && entry.value.length <= 2000) layer.value = entry.value;

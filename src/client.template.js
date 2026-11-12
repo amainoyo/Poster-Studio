@@ -1926,7 +1926,48 @@ void main(){
      * @param {{ embedded?: boolean }} [props] - renders inside the main panel when embedded.
      * @returns {React.ReactElement | null} the panel element.
      */
+    // Floating panel host lease. Several slots can host the single floating
+    // panel; the first host whose effects actually commit claims the lease,
+    // the rest stay idle. A host frozen by a strict reconciler never runs its
+    // effects, so it never claims and never blocks the panel. Idle hosts poll
+    // cheaply so a released lease is picked up after route changes.
+    let panelLeaseOwner = null;
+    let panelLeaseSeq = 0;
+    function PosterPanelHost() {
+      const hostId = React.useRef(0);
+      if (hostId.current === 0) hostId.current = ++panelLeaseSeq;
+      const [claimed, setClaimed] = React.useState(false);
+      React.useEffect(() => {
+        const claim = () => {
+          if (panelLeaseOwner !== null) return false;
+          panelLeaseOwner = hostId.current;
+          setClaimed(true);
+          return true;
+        };
+        if (claim()) {
+          return () => { if (panelLeaseOwner === hostId.current) panelLeaseOwner = null; };
+        }
+        const timer = setInterval(() => { if (claim()) clearInterval(timer); }, 900);
+        return () => clearInterval(timer);
+      }, []);
+      if (!claimed) return h('div', { key: 'idle', style: { display: 'none' } });
+      const panel = h(PosterPanel, {});
+      if (ReactDOM && typeof document !== 'undefined' && document.body) {
+        return ReactDOM.createPortal(panel, document.body);
+      }
+      return panel;
+    }
+
     function PosterPanel(props) {
+      try {
+        return PosterPanelInner(props);
+      } catch (error) {
+        try { window.__posterRenderError = String(error && error.stack || error).slice(0, 800); } catch (ignored) { void ignored; }
+        throw error;
+      }
+    }
+
+    function PosterPanelInner(props) {
       const embedded = Boolean(props && props.embedded);
       const [spec, setSpec] = React.useState(store.spec);
       const [tab, setTab] = React.useState('content');
@@ -3813,21 +3854,12 @@ void main(){
         name: 'shell.overlay',
         id: 'poster-studio',
         order: 40,
-      }, (props) => {
-        // The shell renders its overlay layer below the app chrome, so the
-        // studio is portalled to the page root to sit above everything.
-        if (ReactDOM && typeof document !== 'undefined' && document.body) {
-          return ReactDOM.createPortal(h(PosterPanel, props), document.body);
-        }
-        return h(PosterPanel, props);
-      }));
+      }, () => h(PosterPanelHost, {})));
 
       // Invisible per-session binder: keeps store.sessionId pointing at the
-      // live conversation so the studio can queue agent prompts. It renders
-      // nothing; the visible entry lives in the sidebar.
-      // Invisible per-session binder: keeps store.sessionId pointing at the
-      // live conversation so the studio can queue agent prompts. It renders
-      // nothing; the visible entry lives in the sidebar.
+      // live conversation so the studio can queue agent prompts. It also
+      // doubles as a floating panel host so the studio still opens when a
+      // host freezes the frame-level overlay seat.
       ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
         name: 'conversation.input.overlay',
         id: 'poster-studio-session-bind',
@@ -3836,7 +3868,7 @@ void main(){
         React.useEffect(() => {
           store.sessionId = props.posterSessionId ?? props.sessionId;
         }, [props.posterSessionId, props.sessionId]);
-        return null;
+        return h(PosterPanelHost, {});
       }));
 
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
@@ -3864,6 +3896,7 @@ void main(){
             onClick: () => { store.open = true; store.emit(); },
             style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
           }, store.translate('openTitle')),
+          h(PosterPanelHost, { key: 'host' }),
         ]);
       }));
 

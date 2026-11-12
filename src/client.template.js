@@ -1581,11 +1581,11 @@ void main(){
      */
     function Slider(props) {
       return h('label', {
-        style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+        style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
       }, [
         h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
           h('span', { key: 'label' }, props.label),
-          h('span', { key: 'value', style: { color: 'var(--dsw-alias-label-secondary)', fontVariantNumeric: 'tabular-nums' } }, Math.round(props.value * 100) / 100),
+          h('span', { key: 'value', style: { color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontVariantNumeric: 'tabular-nums' } }, Math.round(props.value * 100) / 100),
         ]),
         h('input', {
           key: 'range',
@@ -1612,8 +1612,8 @@ void main(){
           padding: 2,
           gap: 2,
           borderRadius: 7,
-          border: '1px solid var(--dsw-alias-border-l1)',
-          background: 'var(--dsw-alias-bg-layer-1)',
+          border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+          background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
           flex: '0 0 auto',
         },
       }, props.options.map((option) => h('button', {
@@ -1626,8 +1626,8 @@ void main(){
           fontSize: 11,
           border: 'none',
           cursor: 'pointer',
-          background: props.value === option.value ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
-          color: props.value === option.value ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+          background: props.value === option.value ? 'var(--dsw-alias-bg-layer-2, #26262d)' : 'transparent',
+          color: props.value === option.value ? 'var(--dsw-alias-label-primary, #e8e8ee)' : 'var(--dsw-alias-label-secondary, #9a9aa6)',
         },
       }, option.label)));
     }
@@ -1698,7 +1698,7 @@ void main(){
           onClick: () => props.onSelect(key),
           onMouseMove: (event) => props.onTipMove(event, item),
           onMouseLeave: props.onTipLeave,
-          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer', position: 'relative', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
         }, h('div', { key: 'wrap', style: { position: 'relative', width, height } }, [
           h(PosterCanvas, {
             spec: specs[key],
@@ -1872,7 +1872,7 @@ void main(){
           alignItems: 'center',
           justifyContent: 'center',
           padding: 8,
-          background: 'var(--dsw-alias-bg-layer-1)',
+          background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
           overflow: 'hidden',
         },
       }, h('div', {
@@ -1883,7 +1883,7 @@ void main(){
           height: `${height}px`,
           borderRadius: 10,
           overflow: 'hidden',
-          border: '1px solid var(--dsw-alias-border-l1)',
+          border: '1px solid var(--dsw-alias-border-l1, #34343c)',
           touchAction: 'none',
         },
       }, [
@@ -1912,7 +1912,7 @@ void main(){
           alignItems: 'center',
           gap: 6,
           fontSize: 11,
-          color: 'var(--dsw-alias-label-tertiary)',
+          color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
           flex: props.stretch ? '1 1 0' : '0 0 auto',
           minWidth: 0,
         },
@@ -1934,9 +1934,9 @@ void main(){
             textAlign: 'center',
             padding: '3px 4px',
             borderRadius: 6,
-            border: '1px solid var(--dsw-alias-border-l1)',
-            background: 'var(--dsw-alias-bg-layer-1)',
-            color: 'var(--dsw-alias-label-primary)',
+            border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+            background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
+            color: 'var(--dsw-alias-label-primary, #e8e8ee)',
             fontSize: 12,
             outline: 'none',
             boxSizing: 'border-box',
@@ -2456,9 +2456,9 @@ void main(){
         boxSizing: 'border-box',
         padding: '5px 8px',
         borderRadius: 7,
-        border: '1px solid var(--dsw-alias-border-l1)',
-        background: 'var(--dsw-alias-bg-layer-1)',
-        color: 'var(--dsw-alias-label-primary)',
+        border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+        background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
+        color: 'var(--dsw-alias-label-primary, #e8e8ee)',
         fontFamily: FONT_STACK,
         fontSize: 12,
         outline: 'none',
@@ -2491,17 +2491,17 @@ void main(){
         gap: 8,
         padding: '9px 10px 11px',
         borderRadius: 10,
-        background: 'var(--dsw-alias-bg-layer-2)',
+        background: 'var(--dsw-alias-bg-layer-2, #26262d)',
       };
 
       const layerChipStyle = {
         width: 18,
         height: 18,
         padding: 0,
-        border: '1px solid var(--dsw-alias-border-l1)',
+        border: '1px solid var(--dsw-alias-border-l1, #34343c)',
         borderRadius: 5,
         background: 'transparent',
-        color: 'var(--dsw-alias-label-tertiary)',
+        color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
         cursor: 'pointer',
         fontSize: 10,
         lineHeight: '16px',
@@ -2512,10 +2512,10 @@ void main(){
         height: 22,
         flex: '0 0 auto',
         padding: 0,
-        border: '1px solid var(--dsw-alias-border-l1)',
+        border: '1px solid var(--dsw-alias-border-l1, #34343c)',
         borderRadius: 6,
-        background: active ? 'var(--dsw-alias-bg-layer-1)' : 'transparent',
-        color: active ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+        background: active ? 'var(--dsw-alias-bg-layer-1, #1f1f25)' : 'transparent',
+        color: active ? 'var(--dsw-alias-label-primary, #e8e8ee)' : 'var(--dsw-alias-label-secondary, #9a9aa6)',
         cursor: 'pointer',
         fontSize: 12,
         fontFamily: FONT_STACK,
@@ -2599,11 +2599,11 @@ void main(){
       }, [
         h('span', {
           key: 'label',
-          style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' },
+          style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
         }, [
           h('span', {
             key: 'chev',
-            style: { width: 10, fontSize: 8, color: 'var(--dsw-alias-label-tertiary)' },
+            style: { width: 10, fontSize: 8, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
           }, collapsedIds.includes(layer.id) ? '▶' : '▼'),
           layerLabel(layer, index),
         ]),
@@ -2617,7 +2617,7 @@ void main(){
             type: 'button',
             title: layer.locked ? store.translate('unlock') : store.translate('lock'),
             onClick: () => patchLayer(layer.id, { locked: !layer.locked }),
-            style: { padding: '0 4px', border: 'none', background: 'transparent', color: layer.locked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-label-tertiary)', fontSize: 12, cursor: 'pointer' },
+            style: { padding: '0 4px', border: 'none', background: 'transparent', color: layer.locked ? 'var(--dsw-alias-brand-primary, #4d6bfe)' : 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, layer.locked ? '🔒' : '🔓'),
           ...layerMoveButtons(layer, index),
           ...colorInputs,
@@ -2636,7 +2636,7 @@ void main(){
                 value: normalizeColor(layer.textColor) || '#141414',
                 title: store.translate('textColor'),
                 onChange: (event) => patchLayer(layer.id, { textColor: event.target.value }),
-                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
               }),
               h('input', {
                 key: 'color',
@@ -2644,7 +2644,7 @@ void main(){
                 value: (normalizeColor(layer.color) || '#ffffff').slice(0, 7),
                 title: store.translate('bgColor'),
                 onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
               }),
             ]),
             ...(collapsed ? [] : [
@@ -2662,12 +2662,12 @@ void main(){
               style: fieldStyle,
             }),
             h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-              h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
+              h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' } }, store.translate('font')),
               h('select', {
                 key: 'select',
                 value: layer.font ?? '',
                 onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
-                style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+                style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 12, outline: 'none' },
               }, [
                 h('option', { key: '', value: '' }, store.translate('fontDefault')),
                 ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
@@ -2692,7 +2692,7 @@ void main(){
                 value: normalizeColor(layer.color) || '#000000',
                 title: store.translate('qrColor'),
                 onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
               }),
             ]),
             ...(collapsed ? [] : [
@@ -2739,13 +2739,13 @@ void main(){
                 key: 'preview',
                 src: layer.src,
                 alt: '',
-                style: { maxWidth: 110, maxHeight: 52, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)' },
+                style: { maxWidth: 110, maxHeight: 52, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)' },
               }),
               h('button', {
                 key: 'replace',
                 type: 'button',
                 onClick: () => { pendingImageLayer.current = layer.id; imageFileInput.current?.click(); },
-                style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+                style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
               }, store.translate('replaceImage')),
             ]),
             h('div', { key: 'size', style: { display: 'flex', gap: 10 } }, [
@@ -2794,7 +2794,7 @@ void main(){
               value: layer.color.slice(0, 7),
               title: store.translate('palette'),
               onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-              style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+              style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
             }),
           ]),
           ...(collapsed ? [] : [
@@ -2812,12 +2812,12 @@ void main(){
           style: fieldStyle,
         }),
         h('div', { key: 'rowFont', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-          h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' } }, store.translate('font')),
+          h('span', { key: 'label', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' } }, store.translate('font')),
           h('select', {
             key: 'select',
             value: layer.font ?? '',
             onChange: (event) => patchLayer(layer.id, { font: event.target.value }),
-            style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+            style: { flex: 1, minWidth: 0, padding: '3px 4px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 12, outline: 'none' },
           }, [
             h('option', { key: '', value: '' }, store.translate('fontDefault')),
             ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
@@ -2843,14 +2843,14 @@ void main(){
         h('div', { key: 'rowWeight', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
           h('label', {
             key: 'weightWrap',
-            style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', flex: '0 0 auto' },
+            style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' },
           }, [
             h('span', { key: 'label' }, store.translate('weight')),
             h('select', {
               key: 'select',
               value: String(layer.weight),
               onChange: (event) => patchLayer(layer.id, { weight: Number(event.target.value) }),
-              style: { width: 52, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none' },
+              style: { width: 52, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 12, outline: 'none' },
             }, [100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => h('option', { key: weight, value: weight }, String(weight)))),
           ]),
           h('button', {
@@ -2927,7 +2927,7 @@ void main(){
             value: normalizeColor(layer.outlineColor) || '#000000',
             title: store.translate('outlineColor'),
             onChange: (event) => patchLayer(layer.id, { outlineColor: event.target.value }),
-            style: { width: 20, height: 20, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+            style: { width: 20, height: 20, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
           }),
           h(Stepper, {
             key: 'shadow',
@@ -2975,9 +2975,9 @@ void main(){
       const actionStyle = {
         padding: '5px 0',
         borderRadius: 7,
-        border: '1px solid var(--dsw-alias-border-l1)',
-        background: 'var(--dsw-alias-bg-layer-1)',
-        color: 'var(--dsw-alias-label-secondary)',
+        border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+        background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
+        color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
         fontSize: 11,
         cursor: 'pointer',
         fontFamily: FONT_STACK,
@@ -2988,7 +2988,7 @@ void main(){
             key: 'ai',
             type: 'button',
             onClick: () => { void askAgent(); },
-            style: { ...actionStyle, border: '1px solid var(--dsw-alias-brand-primary)', color: 'var(--dsw-alias-brand-primary)' },
+            style: { ...actionStyle, border: '1px solid var(--dsw-alias-brand-primary, #4d6bfe)', color: 'var(--dsw-alias-brand-primary, #4d6bfe)' },
           }, store.translate('askAi')),
           h('button', {
             key: 'variants',
@@ -3024,28 +3024,28 @@ void main(){
             type: 'button',
             onClick: addLayer,
             disabled: spec.layers.length >= 12,
-            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addText')}`),
           h('button', {
             key: 'addImage',
             type: 'button',
             disabled: spec.layers.length >= 12,
             onClick: () => { pendingImageLayer.current = null; imageFileInput.current?.click(); },
-            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addImage')}`),
           h('button', {
             key: 'addQr',
             type: 'button',
             disabled: spec.layers.length >= 12,
             onClick: addQr,
-            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addQr')}`),
           h('button', {
             key: 'addBadge',
             type: 'button',
             disabled: spec.layers.length >= 12,
             onClick: addBadge,
-            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
+            style: { padding: '6px 0', borderRadius: 10, border: '1px dashed var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', fontFamily: FONT_STACK },
           }, `+ ${store.translate('addBadge')}`),
         ]),
         h('input', {
@@ -3159,9 +3159,9 @@ void main(){
             gap: 5,
             padding: '4px 8px',
             borderRadius: 7,
-            border: '1px solid var(--dsw-alias-border-l1)',
+            border: '1px solid var(--dsw-alias-border-l1, #34343c)',
             background: 'transparent',
-            color: 'var(--dsw-alias-label-secondary)',
+            color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
             fontSize: 11,
             cursor: 'pointer',
           },
@@ -3171,19 +3171,19 @@ void main(){
             style: { width: 10, height: 10, borderRadius: 3, background: item.colors.c3, border: `1px solid ${item.colors.c4}` },
           }),
           item.name,
-          (store.customPalettes ?? []).includes(item.name) ? h('span', { key: 'x', style: { color: 'var(--dsw-alias-label-tertiary)' } }, '✕') : null,
+          (store.customPalettes ?? []).includes(item.name) ? h('span', { key: 'x', style: { color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, '✕') : null,
         ]))),
         h('div', { key: 'swatches', style: { display: 'flex', gap: 6 } }, COLOR_KEYS.map((key) => h('label', {
           key,
           title: key,
-          style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, fontSize: 10, color: 'var(--dsw-alias-label-secondary)' },
+          style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
         }, [
           h('input', {
             key: 'input',
             type: 'color',
             value: spec.colors[key],
             onChange: (event) => store.applySpec({ colors: { [key]: event.target.value } }),
-            style: { width: 28, height: 28, padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, background: 'transparent' },
+            style: { width: 28, height: 28, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 6, background: 'transparent' },
           }),
           h('span', { key: 'name' }, key),
         ]))),
@@ -3206,9 +3206,9 @@ void main(){
           style: {
             padding: '4px 10px',
             borderRadius: 7,
-            border: '1px solid var(--dsw-alias-border-l1)',
-            background: spec.shader.paused ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
-            color: 'var(--dsw-alias-label-secondary)',
+            border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+            background: spec.shader.paused ? 'var(--dsw-alias-bg-layer-2, #26262d)' : 'transparent',
+            color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
             fontSize: 11,
             cursor: 'pointer',
           },
@@ -3221,13 +3221,13 @@ void main(){
             key: 'bgUpload',
             type: 'button',
             onClick: () => bgFileInput.current && bgFileInput.current.click(),
-            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer' },
+            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
           }, store.translate('bgImage')),
           spec.background && spec.background.image ? h('button', {
             key: 'bgRemove',
             type: 'button',
             onClick: () => store.applySpec({ background: { image: '', opacity: spec.background?.opacity ?? 1 } }),
-            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, cursor: 'pointer' },
+            style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
           }, store.translate('bgImageRemove')) : null,
           spec.background && spec.background.image ? h(Slider, {
             key: 'bgOpacity',
@@ -3251,13 +3251,13 @@ void main(){
       ]);
 
       const variantsView = variants.length === 0
-        ? h('div', { key: 'pane-variants-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, store.translate('variants'))
+        ? h('div', { key: 'pane-variants-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('variants'))
         : h('div', { key: 'pane-variants', style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 } }, variants.map((variant, index) => h('button', {
           key: `variant-${index}`,
           type: 'button',
           title: store.translate('applyVariant'),
           onClick: () => { store.applySpec(variant.spec); setTab('content'); },
-          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer' },
+          style: { padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 6, overflow: 'hidden', background: 'transparent', cursor: 'pointer' },
         }, h('canvas', {
           ref: (node) => {
             if (!node) return;
@@ -3281,23 +3281,23 @@ void main(){
       };
 
       const libraryView = library.length === 0
-        ? h('div', { key: 'pane-library-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, store.translate('noExports'))
+        ? h('div', { key: 'pane-library-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('noExports'))
         : h('div', { key: 'pane-library', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
           h('button', {
             key: 'clear',
             type: 'button',
             onClick: () => { void clearLibrary(); },
-            style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', fontFamily: FONT_STACK },
+            style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', fontFamily: FONT_STACK },
           }, store.translate('clearLibrary')),
           ...library.map((entry) => h('div', {
           key: `${entry.name}-${library.indexOf(entry)}`,
-          style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--dsw-alias-label-secondary)' },
+          style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
         }, [
           h('img', {
             key: 'thumb',
             src: `/poster-studio/exports?file=${encodeURIComponent(entry.name)}`,
             alt: entry.name,
-            style: { width: 52, height: 65, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1)', flex: '0 0 auto', display: 'block', background: 'var(--dsw-alias-bg-layer-1)' },
+            style: { width: 52, height: 65, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1, #34343c)', flex: '0 0 auto', display: 'block', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)' },
           }),
           h('span', { key: 'name', style: { flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
           entry.spec
@@ -3305,7 +3305,7 @@ void main(){
               key: 'apply',
               type: 'button',
               onClick: () => { store.applySpec(entry.spec); setTab('content'); },
-              style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, cursor: 'pointer' },
+              style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
             }, store.translate('applyVariant'))
             : null,
           ]))]);
@@ -3375,8 +3375,8 @@ void main(){
           flexDirection: 'column',
           overflow: 'hidden',
           borderRadius: fullscreen || embedded ? 0 : 14,
-          border: fullscreen || embedded ? 'none' : '1px solid var(--dsw-alias-border-l1)',
-          background: fullscreen ? '#0a0a0c' : 'var(--dsw-alias-bg-overlay)',
+          border: fullscreen || embedded ? 'none' : '1px solid var(--dsw-alias-border-l1, #34343c)',
+          background: fullscreen ? '#0a0a0c' : 'var(--dsw-alias-bg-overlay, #232329)',
           boxShadow: fullscreen || embedded ? 'none' : '0 24px 64px rgba(0,0,0,0.38)',
           pointerEvents: 'auto',
           fontFamily: FONT_STACK,
@@ -3385,7 +3385,7 @@ void main(){
         h('div', {
           key: 'header',
           onMouseDown: embedded ? undefined : startDrag,
-          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderBottom: '1px solid var(--dsw-alias-border-l1)', cursor: embedded ? 'default' : 'move' },
+          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderBottom: '1px solid var(--dsw-alias-border-l1, #34343c)', cursor: embedded ? 'default' : 'move' },
         }, [
           h('select', {
             key: 'size',
@@ -3403,9 +3403,9 @@ void main(){
             style: {
               padding: '4px 8px',
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-border-l1)',
-              background: 'var(--dsw-alias-bg-layer-1)',
-              color: 'var(--dsw-alias-label-primary)',
+              border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+              background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
+              color: 'var(--dsw-alias-label-primary, #e8e8ee)',
               fontSize: 12,
             },
           }, [
@@ -3413,7 +3413,7 @@ void main(){
             h('option', { key: '__custom', value: '__custom' }, SIZES[spec.size] ? store.translate('customSize') : `${store.translate('customSize')} ${preset.width}×${preset.height}`),
             h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
           ]),
-          h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)' } }, `${preset.width}×${preset.height}`),
+          h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, `${preset.width}×${preset.height}`),
           h('button', {
             key: 'fullscreen',
             type: 'button',
@@ -3425,9 +3425,9 @@ void main(){
               width: 26,
               height: 26,
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-border-l1)',
+              border: '1px solid var(--dsw-alias-border-l1, #34343c)',
               background: 'transparent',
-              color: 'var(--dsw-alias-label-secondary)',
+              color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
               cursor: 'pointer',
               fontSize: 12,
             },
@@ -3443,9 +3443,9 @@ void main(){
               width: 26,
               height: 26,
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-border-l1)',
+              border: '1px solid var(--dsw-alias-border-l1, #34343c)',
               background: 'transparent',
-              color: 'var(--dsw-alias-label-secondary)',
+              color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
               cursor: 'pointer',
               fontSize: 13,
             },
@@ -3457,7 +3457,7 @@ void main(){
         }, [
           h('div', {
             key: 'stage',
-            style: { flex: '1 1 auto', minWidth: 0, display: 'flex', overflow: 'hidden', background: 'var(--dsw-alias-bg-layer-1)' },
+            style: { flex: '1 1 auto', minWidth: 0, display: 'flex', overflow: 'hidden', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)' },
           }, stage),
           fullscreen ? null : h('div', {
             key: 'controls',
@@ -3466,8 +3466,8 @@ void main(){
               display: 'flex',
               flexDirection: 'column',
               minHeight: 0,
-              borderLeft: '1px solid var(--dsw-alias-border-l1)',
-              background: 'var(--dsw-alias-bg-layer-1)',
+              borderLeft: '1px solid var(--dsw-alias-border-l1, #34343c)',
+              background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
             },
           }, [
             h('div', {
@@ -3478,8 +3478,8 @@ void main(){
                 margin: '8px 10px 0',
                 padding: 2,
                 borderRadius: 8,
-                border: '1px solid var(--dsw-alias-border-l1)',
-                background: 'var(--dsw-alias-bg-layer-2)',
+                border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+                background: 'var(--dsw-alias-bg-layer-2, #26262d)',
               },
             }, tabs.map((item) => h('button', {
               key: item.id,
@@ -3491,8 +3491,8 @@ void main(){
                 padding: '4px 0',
                 borderRadius: 6,
                 border: 'none',
-                background: tab === item.id ? 'var(--dsw-alias-bg-overlay)' : 'transparent',
-                color: tab === item.id ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+                background: tab === item.id ? 'var(--dsw-alias-bg-overlay, #232329)' : 'transparent',
+                color: tab === item.id ? 'var(--dsw-alias-label-primary, #e8e8ee)' : 'var(--dsw-alias-label-secondary, #9a9aa6)',
                 fontSize: 11,
                 cursor: 'pointer',
                 fontFamily: FONT_STACK,
@@ -3510,7 +3510,7 @@ void main(){
         ]),
         fullscreen ? null : h('div', {
           key: 'footer',
-          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderTop: '1px solid var(--dsw-alias-border-l1)' },
+          style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderTop: '1px solid var(--dsw-alias-border-l1, #34343c)' },
         }, [
           h('button', {
             key: 'export',
@@ -3519,9 +3519,9 @@ void main(){
             style: {
               padding: '5px 12px',
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-brand-primary)',
+              border: '1px solid var(--dsw-alias-brand-primary, #4d6bfe)',
               background: 'transparent',
-              color: 'var(--dsw-alias-brand-primary)',
+              color: 'var(--dsw-alias-brand-primary, #4d6bfe)',
               fontSize: 12,
               cursor: 'pointer',
             },
@@ -3534,9 +3534,9 @@ void main(){
             style: {
               padding: '5px 12px',
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-brand-primary)',
+              border: '1px solid var(--dsw-alias-brand-primary, #4d6bfe)',
               background: 'transparent',
-              color: 'var(--dsw-alias-brand-primary)',
+              color: 'var(--dsw-alias-brand-primary, #4d6bfe)',
               fontSize: 12,
               cursor: 'pointer',
             },
@@ -3570,7 +3570,7 @@ void main(){
                 image.src = objectUrl;
               });
             },
-            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, '💾'),
           h('button', {
             key: 'versions',
@@ -3583,9 +3583,9 @@ void main(){
             style: {
               padding: '5px 10px',
               borderRadius: 7,
-              border: '1px solid var(--dsw-alias-border-l1)',
-              background: versionsOpen ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
-              color: 'var(--dsw-alias-label-secondary)',
+              border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+              background: versionsOpen ? 'var(--dsw-alias-bg-layer-2, #26262d)' : 'transparent',
+              color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
               fontSize: 12,
               cursor: 'pointer',
             },
@@ -3595,24 +3595,24 @@ void main(){
             type: 'button',
             title: store.translate('undo'),
             onClick: () => store.undo(),
-            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, '↶'),
           h('button', {
             key: 'redo',
             type: 'button',
             title: store.translate('redo'),
             onClick: () => store.redo(),
-            style: { padding: '5px 10px', borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+            style: { padding: '5px 10px', borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, '↷'),
           h('button', {
             key: 'reset',
             type: 'button',
             onClick: () => store.applySpec(defaultSpec()),
-            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+            style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, store.translate('reset')),
           h('span', {
             key: 'status',
-            style: { marginLeft: 'auto', fontSize: 10, color: 'var(--dsw-alias-label-secondary)', maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+            style: { marginLeft: 'auto', fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
           }, status),
         ]),
         fullscreen || embedded ? null : h('div', { key: 'rez', style: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 } }, [
@@ -3632,8 +3632,8 @@ void main(){
               padding: '3px 8px',
               borderRadius: 6,
               background: 'rgba(24,24,28,0.94)',
-              border: '1px solid var(--dsw-alias-border-l1)',
-              color: 'var(--dsw-alias-label-primary)',
+              border: '1px solid var(--dsw-alias-border-l1, #34343c)',
+              color: 'var(--dsw-alias-label-primary, #e8e8ee)',
               fontSize: 11,
               whiteSpace: 'nowrap',
               boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
@@ -3646,9 +3646,9 @@ void main(){
             onMouseDown: (event) => event.stopPropagation(),
             style: { position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
           }, h('div', {
-            style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-2)', boxShadow: '0 12px 32px rgba(0,0,0,0.45)', minWidth: 260, maxWidth: '80%' },
+            style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-2, #26262d)', boxShadow: '0 12px 32px rgba(0,0,0,0.45)', minWidth: 260, maxWidth: '80%' },
           }, [
-            h('div', { key: 'label', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary)' } }, namePrompt.label),
+            h('div', { key: 'label', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary, #e8e8ee)' } }, namePrompt.label),
             h('input', {
               key: 'input',
               ref: namePromptInput,
@@ -3660,20 +3660,20 @@ void main(){
                 if (event.key === 'Enter') finishNamePrompt(namePrompt.value.trim() || null);
                 else if (event.key === 'Escape') finishNamePrompt(null);
               },
-              style: { padding: '6px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' },
+              style: { padding: '6px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' },
             }),
             h('div', { key: 'row', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
               h('button', {
                 key: 'cancel',
                 type: 'button',
                 onClick: () => finishNamePrompt(null),
-                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
               }, store.translate('cancel')),
               h('button', {
                 key: 'ok',
                 type: 'button',
                 onClick: () => finishNamePrompt(namePrompt.value.trim() || null),
-                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-brand-primary)', background: 'transparent', color: 'var(--dsw-alias-brand-primary)', fontSize: 12, cursor: 'pointer' },
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-brand-primary, #4d6bfe)', background: 'transparent', color: 'var(--dsw-alias-brand-primary, #4d6bfe)', fontSize: 12, cursor: 'pointer' },
               }, 'OK'),
             ]),
           ]))
@@ -3686,24 +3686,24 @@ void main(){
             style: { position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
           }, h('div', {
             onClick: (event) => event.stopPropagation(),
-            style: { width: 300, maxHeight: '70%', overflowY: 'auto', padding: 12, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-overlay)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 8 },
+            style: { width: 300, maxHeight: '70%', overflowY: 'auto', padding: 12, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-overlay, #232329)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 8 },
           }, [
-            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, store.translate('versions')),
+            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary, #e8e8ee)' } }, store.translate('versions')),
             (store.versions ?? []).length === 0
-              ? h('span', { key: 'empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, store.translate('versionsEmpty'))
+              ? h('span', { key: 'empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('versionsEmpty'))
               : null,
             ...(store.versions ?? []).map((entry) => h('div', {
               key: entry.id,
-              style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1)' },
+              style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1, #34343c)' },
             }, [
               entry.thumb
                 ? h('img', {
                   key: 'thumb',
                   src: `data:image/jpeg;base64,${entry.thumb}`,
                   alt: '',
-                  style: { width: 34, height: 44, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1)', background: '#000', flex: '0 0 auto' },
+                  style: { width: 34, height: 44, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: '#000', flex: '0 0 auto' },
                 })
-                : h('span', { key: 'dot', style: { width: 34, height: 44, borderRadius: 4, background: 'var(--dsw-alias-bg-layer-2)', flex: '0 0 auto' } }),
+                : h('span', { key: 'dot', style: { width: 34, height: 44, borderRadius: 4, background: 'var(--dsw-alias-bg-layer-2, #26262d)', flex: '0 0 auto' } }),
               h('div', {
                 key: 'info',
                 style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer' },
@@ -3722,15 +3722,15 @@ void main(){
                   })();
                 },
               }, [
-                h('span', { key: 'name', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
-                h('span', { key: 'time', style: { fontSize: 10, color: 'var(--dsw-alias-label-tertiary)' } }, String(entry.savedAt ?? '').slice(0, 16).replace('T', ' ')),
+                h('span', { key: 'name', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary, #e8e8ee)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
+                h('span', { key: 'time', style: { fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, String(entry.savedAt ?? '').slice(0, 16).replace('T', ' ')),
               ]),
               h('button', {
                 key: 'del',
                 type: 'button',
                 title: store.translate('removeLayer'),
                 onClick: () => { void store.deleteVersion(entry.id); },
-                style: { padding: '2px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, cursor: 'pointer' },
+                style: { padding: '2px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
               }, '✕'),
             ])),
           ]))
@@ -3741,11 +3741,11 @@ void main(){
             onMouseDown: (event) => event.stopPropagation(),
             style: { position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
           }, h('div', {
-            style: { width: 236, padding: 14, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-overlay)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 10 },
+            style: { width: 236, padding: 14, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-overlay, #232329)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 10 },
           }, [
-            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, store.translate('customSize')),
+            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary, #e8e8ee)' } }, store.translate('customSize')),
             h('div', { key: 'rows', style: { display: 'flex', gap: 10 } }, [
-              h('label', { key: 'w', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, [
+              h('label', { key: 'w', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, [
                 store.translate('canvasWidth'),
                 h('input', {
                   key: 'in',
@@ -3754,10 +3754,10 @@ void main(){
                   max: 4000,
                   value: customSize.w,
                   onChange: (event) => setCustomSize((current) => ({ ...current, w: event.target.value })),
-                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 13, outline: 'none' },
+                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 13, outline: 'none' },
                 }),
               ]),
-              h('label', { key: 'h', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, [
+              h('label', { key: 'h', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, [
                 store.translate('canvasHeight'),
                 h('input', {
                   key: 'in',
@@ -3766,17 +3766,17 @@ void main(){
                   max: 4000,
                   value: customSize.h,
                   onChange: (event) => setCustomSize((current) => ({ ...current, h: event.target.value })),
-                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 13, outline: 'none' },
+                  style: { width: '100%', padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 13, outline: 'none' },
                 }),
               ]),
             ]),
-            h('span', { key: 'hint', style: { fontSize: 10, color: 'var(--dsw-alias-label-tertiary)' } }, store.translate('customSizeHint')),
+            h('span', { key: 'hint', style: { fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('customSizeHint')),
             h('div', { key: 'actions', style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } }, [
               h('button', {
                 key: 'cancel',
                 type: 'button',
                 onClick: () => setCustomSize(null),
-                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
               }, store.translate('cancel')),
               h('button', {
                 key: 'apply',
@@ -3788,7 +3788,7 @@ void main(){
                   store.applySpec({ size: `${width}x${height}` });
                   setCustomSize(null);
                 },
-                style: { padding: '5px 12px', borderRadius: 7, border: 'none', background: 'var(--dsw-alias-brand-primary)', color: '#fff', fontSize: 12, cursor: 'pointer' },
+                style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-brand-primary, #4d6bfe)', background: 'var(--dsw-alias-brand-primary, #4d6bfe)', color: 'var(--dsw-alias-label-primary-inverted, #fff)', fontSize: 12, cursor: 'pointer' },
               }, store.translate('apply')),
             ]),
           ]))
@@ -3814,7 +3814,7 @@ void main(){
         height: edge,
         viewBox: '0 0 24 24',
         fill: 'none',
-        stroke: props.active ? 'var(--dsw-alias-brand-primary)' : 'currentColor',
+        stroke: props.active ? 'var(--dsw-alias-brand-primary, #4d6bfe)' : 'currentColor',
         strokeWidth: 1.6,
         strokeLinecap: 'round',
         strokeLinejoin: 'round',
@@ -3862,10 +3862,10 @@ void main(){
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
-          border: '1px solid var(--dsw-alias-border-l1)',
+          border: '1px solid var(--dsw-alias-border-l1, #34343c)',
           borderRadius: 12,
           overflow: 'hidden',
-          background: 'var(--dsw-alias-bg-layer-1)',
+          background: 'var(--dsw-alias-bg-layer-1, #1f1f25)',
           fontFamily: FONT_STACK,
         },
       }, [
@@ -3886,9 +3886,9 @@ void main(){
           style: {
             padding: '4px 10px',
             borderRadius: 8,
-            border: '1px solid var(--dsw-alias-border-l1)',
+            border: '1px solid var(--dsw-alias-border-l1, #34343c)',
             background: 'transparent',
-            color: 'var(--dsw-alias-label-secondary)',
+            color: 'var(--dsw-alias-label-secondary, #9a9aa6)',
             fontFamily: FONT_STACK,
             fontSize: 12,
             cursor: 'pointer',
@@ -3999,14 +3999,14 @@ void main(){
         open() { store.open = true; store.emit(); }
         render() {
           return h('div', {
-            style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', fontFamily: FONT_STACK, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' },
+            style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', fontFamily: FONT_STACK, fontSize: 13, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
           }, [
             h('div', { key: 'hint' }, store.translate('studioFloatHint')),
             h('button', {
               key: 'open',
               type: 'button',
               onClick: () => this.open(),
-              style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
+              style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
             }, store.translate('openTitle')),
             h(PosterPanelHost, { key: 'host' }),
           ]);

@@ -17,7 +17,7 @@ import urllib.request
 from PIL import Image
 
 HOST = "127.0.0.1"
-PORT = 6800
+PORT = int(os.environ.get("DSH_PORT", "6800"))
 CRED = r"C:\Users\amain\.dsh\.credentials.yaml"
 ROOT = r"D:\Deepseek\dsh-poster-studio"
 BG_PNG = r"D:\Deepseek\poster_bg\newyear-2027-bg.png"

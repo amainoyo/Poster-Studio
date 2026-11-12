@@ -31,21 +31,6 @@ window.__ModuleLoader__.load({
       }
     }
     const h = React.createElement;
-    // Diagnostic: record which react instance is rendering this module and
-    // which instance owns the live dispatcher during render.
-    try {
-      if (typeof window !== 'undefined') {
-        const own = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-        const dom = ReactDOM && ReactDOM.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-        window.__posterReactDiag = {
-          ownDispatcher: Boolean(own && own.ReactCurrentDispatcher && own.ReactCurrentDispatcher.current),
-          domSameAsOwn: Boolean(own && dom && own.ReactCurrentDispatcher === dom.ReactCurrentDispatcher),
-          domDispatcher: Boolean(dom && dom.ReactCurrentDispatcher && dom.ReactCurrentDispatcher.current),
-          reactVersion: React.version,
-          domVersion: ReactDOM ? ReactDOM.version : null,
-        };
-      }
-    } catch (error) { void error; }
 
     // ---------------------------------------------------------------------
     // Fonts: the Latin and Chinese faces of the official DeepSeek Harness
@@ -2063,15 +2048,6 @@ void main(){
     }
 
     function PosterPanelInner(props) {
-      try {
-        const own = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-        const dom = ReactDOM && ReactDOM.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-        window.__posterRenderDiag = {
-          ownDispatcher: Boolean(own && own.ReactCurrentDispatcher && own.ReactCurrentDispatcher.current),
-          domSameAsOwn: Boolean(own && dom && own.ReactCurrentDispatcher === dom.ReactCurrentDispatcher),
-          domDispatcher: Boolean(dom && dom.ReactCurrentDispatcher && dom.ReactCurrentDispatcher.current),
-        };
-      } catch (error) { void error; }
       const embedded = Boolean(props && props.embedded);
       const [spec, setSpec] = React.useState(store.spec);
       const [tab, setTab] = React.useState('content');
@@ -3951,13 +3927,6 @@ void main(){
       } catch {
         store.translate = (key) => DICTIONARIES.en[key] ?? key;
       }
-
-      try { window.__posterInjected = true; } catch (error) { void error; }
-      try {
-        const shape = { keys: Object.getOwnPropertyNames(ctx), reflect: ctx.reflect ? Object.getOwnPropertyNames(Object.getPrototypeOf(ctx.reflect) || {}) : null };
-        try { shape.modulesKeys = ctx.modules ? Object.getOwnPropertyNames(ctx.modules) : (ctx.reflect && ctx.reflect.read ? Object.getOwnPropertyNames(ctx.reflect.read('modules') || {}) : null); } catch (e) { shape.modulesErr = String(e).slice(0, 80); }
-        window.__posterCtxShape = shape;
-      } catch (error) { window.__posterCtxShape = { err: String(error).slice(0, 120) }; }
 
       ctx.slots.inject('shell.overlay', () => ctx.slots.register({
         name: 'shell.overlay',

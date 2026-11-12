@@ -335,7 +335,12 @@ function applyPatch(base, patch) {
   }
   for (const layer of next.layers) {
     const friendly = Object.keys(FRIENDLY_LAYERS).find((name) => FRIENDLY_LAYERS[name] === layer.id);
-    if (friendly !== undefined && typeof patch[friendly] === 'string') layer.text = patch[friendly];
+    if (friendly === undefined) continue;
+    const value = patch[friendly];
+    // The call layer rewrites numeric-looking strings ("2027") into numbers,
+    // so a headline may arrive as a number. Keep the text either way.
+    if (typeof value === 'string') layer.text = value;
+    else if (typeof value === 'number' && Number.isFinite(value)) layer.text = String(value);
   }
   if (Array.isArray(patch.layers)) {
     for (const entry of patch.layers) {
@@ -943,6 +948,37 @@ export function apply(ctx, config = {}) {
             lightHalo: { type: 'number', required: false, description: 'Cool light halo, 0 to 1.' },
             speed: { type: 'number', required: false, description: 'Animation speed, 0 to 4.' },
             paused: { type: 'boolean', required: false, description: 'Freeze the backdrop animation.' },
+          },
+        },
+        layers: {
+          type: 'array',
+          required: false,
+          description: 'Layer patches. An entry whose id matches an existing layer updates it; an unknown id adds a new layer.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', required: false, description: 'Layer id, for example title, subtitle, footer, tag, year, seal.' },
+              text: { type: 'string', required: false, description: 'Layer text.' },
+              kind: { type: 'string', required: false, enum: ['text', 'image', 'qr', 'badge'] },
+              size: { type: 'number', required: false, description: 'Font size in pixels.' },
+              weight: { type: 'number', required: false, description: 'Font weight, 100 to 900.' },
+              align: { type: 'string', required: false, enum: ['left', 'center', 'right'] },
+              x: { type: 'number', required: false, description: 'Horizontal anchor, 0 to 1.' },
+              y: { type: 'number', required: false, description: 'Vertical anchor, 0 to 1.' },
+              color: { type: 'string', required: false, description: 'Text colour as #rrggbb or #rrggbbaa.' },
+              outline: { type: 'number', required: false, description: 'Text outline strength, 0 to 1.' },
+              outlineColor: { type: 'string', required: false, description: 'Outline colour as #rrggbb.' },
+              shadow: { type: 'number', required: false, description: 'Text shadow strength, 0 to 1.' },
+              font: { type: 'string', required: false, enum: ['', 'noto-sans-sc', 'noto-serif-sc', 'zcool-xiaowei', 'zcool-huangyou', 'ma-shan-zheng', 'playfair'] },
+              src: { type: 'string', required: false, description: 'Image layer source as a data:image/… URL.' },
+              value: { type: 'string', required: false, description: 'Badge or QR payload.' },
+              textColor: { type: 'string', required: false, description: 'Badge text colour as #rrggbb.' },
+              lineHeight: { type: 'number', required: false, description: 'Line height multiplier.' },
+              letterSpacing: { type: 'number', required: false, description: 'Letter spacing in pixels, -10 to 40.' },
+              maxWidth: { type: 'number', required: false, description: 'Text wrap width as a fraction of the canvas.' },
+              width: { type: 'number', required: false, description: 'Image layer width as a fraction of the canvas.' },
+              opacity: { type: 'number', required: false, description: 'Layer opacity, 0 to 1.' },
+            },
           },
         },
         reset: {

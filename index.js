@@ -674,7 +674,7 @@ export function apply(ctx, config = {}) {
             return;
           }
           const name = typeof payload.name === 'string' ? payload.name.slice(0, 40) : '';
-          const thumb = typeof payload.thumb === 'string' && payload.thumb.startsWith('data:image/') ? payload.thumb : '';
+          const thumb = typeof payload.thumb === 'string' && payload.thumb.length < 400000 && /^[A-Za-z0-9+/=]+$/.test(payload.thumb) ? payload.thumb : '';
           const entry = {
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             name: name.length > 0 ? name : new Date().toLocaleString(),

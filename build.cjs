@@ -37,9 +37,17 @@ const qrcodeExpr = '(function(){' + qrcodeSource
 const template = fs.readFileSync(TEMPLATE, 'utf8');
 if (!template.includes('__FONT_FACE_CSS__')) throw new Error('template placeholder missing');
 if (!template.includes('__QRCODE_LIB__')) throw new Error('qrcode placeholder missing');
+
+// Vendored React pair (UMD builds): the plugin mounts its own trees to stay
+// immune to host/module React copy drift (React #321).
+const reactUmd = fs.readFileSync(path.join(ROOT, 'node_modules', 'react', 'umd', 'react.production.min.js'), 'utf8');
+const reactDomUmd = fs.readFileSync(path.join(ROOT, 'node_modules', 'react-dom', 'umd', 'react-dom.production.min.js'), 'utf8');
+
 const output = template
   .replace('__FONT_FACE_CSS__', '`' + css + '`')
-  .replace('__QRCODE_LIB__', () => qrcodeExpr);
+  .replace('__QRCODE_LIB__', () => qrcodeExpr)
+  .replace('__REACT_UMD__', () => reactUmd)
+  .replace('__REACT_DOM_UMD__', () => reactDomUmd);
 fs.writeFileSync(OUTPUT, output, 'utf8');
 
 console.log('wrote', OUTPUT, (output.length / 1024).toFixed(1), 'KiB');

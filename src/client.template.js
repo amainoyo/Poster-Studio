@@ -1,14 +1,36 @@
 window.__ModuleLoader__.load({
   id: '@local/dsh-poster-studio',
   factory(require) {
-    const React = require('react');
-    const h = React.createElement;
+    // Vendored React pair. The harness frame renders plugin occupants with
+    // its own bundled React while the module loader may hand out a different
+    // copy, so hook calls cross instances and die (React #321). Every plugin
+    // tree therefore mounts through this private, coherent pair: occupants
+    // stay hook-free (class shells) and the whole UI renders in our root.
+    let React = null;
     let ReactDOM = null;
     try {
-      ReactDOM = require('react-dom');
-    } catch {
-      ReactDOM = null;
+      const prevR = typeof window !== 'undefined' ? window.React : undefined;
+      const prevD = typeof window !== 'undefined' ? window.ReactDOM : undefined;
+      __REACT_UMD__;
+      __REACT_DOM_UMD__;
+      if (typeof window !== 'undefined' && window.React && window.ReactDOM) {
+        React = window.React;
+        ReactDOM = window.ReactDOM;
+      }
+      if (typeof window !== 'undefined') {
+        if (prevR === undefined) delete window.React; else window.React = prevR;
+        if (prevD === undefined) delete window.ReactDOM; else window.ReactDOM = prevD;
+      }
+    } catch (error) { void error; }
+    if (!React) React = require('react');
+    if (!ReactDOM) {
+      try {
+        ReactDOM = require('react-dom');
+      } catch {
+        ReactDOM = null;
+      }
     }
+    const h = React.createElement;
     // Diagnostic: record which react instance is rendering this module and
     // which instance owns the live dispatcher during render.
     try {
@@ -1944,33 +1966,89 @@ void main(){
     // Floating panel host lease. Several slots can host the single floating
     // panel; the first host whose effects actually commit claims the lease,
     // the rest stay idle. A host frozen by a strict reconciler never runs its
-    // effects, so it never claims and never blocks the panel. Idle hosts poll
-    // cheaply so a released lease is picked up after route changes.
+    // lifecycle, so it never claims and never blocks the panel. Idle hosts
+    // poll cheaply so a released lease is picked up after route changes.
     let panelLeaseOwner = null;
     let panelLeaseSeq = 0;
-    function PosterPanelHost() {
-      const hostId = React.useRef(0);
-      if (hostId.current === 0) hostId.current = ++panelLeaseSeq;
-      const [claimed, setClaimed] = React.useState(false);
-      React.useEffect(() => {
-        const claim = () => {
-          if (panelLeaseOwner !== null) return false;
-          panelLeaseOwner = hostId.current;
-          setClaimed(true);
-          return true;
-        };
-        if (claim()) {
-          return () => { if (panelLeaseOwner === hostId.current) panelLeaseOwner = null; };
-        }
-        const timer = setInterval(() => { if (claim()) clearInterval(timer); }, 900);
-        return () => clearInterval(timer);
-      }, []);
-      if (!claimed) return h('div', { key: 'idle', style: { display: 'none' } });
-      const panel = h(PosterPanel, {});
-      if (ReactDOM && typeof document !== 'undefined' && document.body) {
-        return ReactDOM.createPortal(panel, document.body);
+    const posterHosts = new Set();
+    class PosterPanelHost extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { claimed: false };
+        this.id = ++panelLeaseSeq;
+        this.timer = null;
+        this.node = null;
       }
-      return panel;
+      claim() {
+        if (panelLeaseOwner !== null) return false;
+        panelLeaseOwner = this.id;
+        this.setState({ claimed: true });
+        return true;
+      }
+      componentDidMount() {
+        posterHosts.add(this);
+        if (this.claim()) return;
+        this.timer = setInterval(() => { if (this.claim() && this.timer) { clearInterval(this.timer); this.timer = null; } }, 900);
+      }
+      componentDidUpdate() {
+        if (this.state.claimed && !this.node && typeof document !== 'undefined' && document.body) {
+          this.node = document.createElement('div');
+          this.node.setAttribute('data-poster-studio-root', '');
+          document.body.appendChild(this.node);
+          ReactDOM.render(h(PosterPanel, {}), this.node);
+        }
+      }
+      componentWillUnmount() {
+        posterHosts.delete(this);
+        if (this.timer) clearInterval(this.timer);
+        if (panelLeaseOwner === this.id) {
+          panelLeaseOwner = null;
+          for (const peer of posterHosts) { if (peer !== this && !peer.state.claimed && peer.claim()) break; }
+        }
+        if (this.node) {
+          const node = this.node;
+          this.node = null;
+          ReactDOM.unmountComponentAtNode(node);
+          node.remove();
+        }
+      }
+      render() {
+        return h('div', { style: { display: 'none' } });
+      }
+    }
+
+    // Hook-free mount shell for host-rendered occupants: renders an anchor
+    // and mounts the real (hook-heavy) tree through the vendored pair.
+    function makeMountedShell(elementFactory, anchorStyle) {
+      return class MountedShell extends React.Component {
+        constructor(props) {
+          super(props);
+          this.anchor = null;
+          this.node = null;
+        }
+        attach(el) { this.anchor = el; }
+        paint() {
+          if (!this.node && this.anchor && this.anchor.parentNode && typeof document !== 'undefined') {
+            this.node = document.createElement('div');
+            this.node.setAttribute('data-poster-studio-mount', '');
+            this.anchor.parentNode.insertBefore(this.node, this.anchor);
+            ReactDOM.render(elementFactory(this.props), this.node);
+          }
+        }
+        componentDidMount() { this.paint(); }
+        componentDidUpdate() { if (this.node) ReactDOM.render(elementFactory(this.props), this.node); else this.paint(); }
+        componentWillUnmount() {
+          if (this.node) {
+            const node = this.node;
+            this.node = null;
+            ReactDOM.unmountComponentAtNode(node);
+            node.remove();
+          }
+        }
+        render() {
+          return h('div', { ref: (el) => this.attach(el), style: anchorStyle || { display: 'contents' } });
+        }
+      };
     }
 
     function PosterPanel(props) {
@@ -3893,11 +3971,14 @@ void main(){
         name: 'conversation.input.overlay',
         id: 'poster-studio-session-bind',
         inject: (sessionId) => ({ posterSessionId: sessionId }),
-      }, (props) => {
-        React.useEffect(() => {
-          store.sessionId = props.posterSessionId ?? props.sessionId;
-        }, [props.posterSessionId, props.sessionId]);
-        return h(PosterPanelHost, {});
+      }, class SessionBinder extends React.Component {
+        bind() {
+          const sessionId = this.props.posterSessionId ?? this.props.sessionId;
+          if (sessionId !== undefined) store.sessionId = sessionId;
+        }
+        componentDidMount() { this.bind(); }
+        componentDidUpdate() { this.bind(); }
+        render() { return h(PosterPanelHost, {}); }
       }));
 
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
@@ -3913,27 +3994,30 @@ void main(){
       ctx.slots.inject('main', () => ctx.slots.register({
         name: 'main',
         key: 'poster-studio',
-      }, () => {
-        React.useEffect(() => { store.open = true; store.emit(); }, []);
-        return h('div', {
-          style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', fontFamily: FONT_STACK, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' },
-        }, [
-          h('div', { key: 'hint' }, store.translate('studioFloatHint')),
-          h('button', {
-            key: 'open',
-            type: 'button',
-            onClick: () => { store.open = true; store.emit(); },
-            style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
-          }, store.translate('openTitle')),
-          h(PosterPanelHost, { key: 'host' }),
-        ]);
+      }, class MainPlaceholder extends React.Component {
+        componentDidMount() { store.open = true; store.emit(); }
+        open() { store.open = true; store.emit(); }
+        render() {
+          return h('div', {
+            style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', fontFamily: FONT_STACK, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' },
+          }, [
+            h('div', { key: 'hint' }, store.translate('studioFloatHint')),
+            h('button', {
+              key: 'open',
+              type: 'button',
+              onClick: () => this.open(),
+              style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', fontFamily: FONT_STACK, fontSize: 12, cursor: 'pointer' },
+            }, store.translate('openTitle')),
+            h(PosterPanelHost, { key: 'host' }),
+          ]);
+        }
       }));
 
       ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
         name: 'tool.call.toolview',
         key: 'poster_design',
         inject: (sessionId) => ({ posterSessionId: sessionId }),
-      }, PosterToolView));
+      }, makeMountedShell((props) => h(PosterToolView, props))));
     }
 
     return { inject, apply };

@@ -299,6 +299,13 @@ void main(){
         saved: 'Saved',
         clearLibrary: 'Clear library',
         libraryCleared: 'Export library cleared',
+        exportAll: 'Export all sizes',
+        exportAllHint: 'Render every preset size and save them all into one folder.',
+        exportAllProgress: 'Rendering',
+        exportAllDone: 'All sizes exported',
+        lock: 'Lock layer',
+        unlock: 'Unlock layer',
+        lockedLayer: 'This layer is locked and cannot be dragged.',
         weight: 'Weight',
         font: 'Font',
         fontDefault: 'Default',
@@ -366,6 +373,13 @@ void main(){
         studio: '海报创作',
         saved: '已保存',
         clearLibrary: '清空图库',
+        exportAll: '导出全部尺寸',
+        exportAllHint: '把 5 种预设尺寸全部渲染，一次性保存到同一个文件夹。',
+        exportAllProgress: '正在渲染',
+        exportAllDone: '全部尺寸已导出',
+        lock: '锁定图层',
+        unlock: '解锁图层',
+        lockedLayer: '图层已锁定，不能拖动。',
         libraryCleared: '图库已清空',
         weight: '字重',
         font: '字体',
@@ -1280,7 +1294,10 @@ void main(){
          * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
          */
         layout() {
-          return layout;
+          return layout.map((entry) => {
+            const layer = spec.layers.find((item) => item.id === entry.id);
+            return { ...entry, locked: Boolean(layer && layer.locked) };
+          });
         },
         /**
          * Subscribe to layout recomputation after asynchronous repaints.
@@ -1533,6 +1550,8 @@ void main(){
       const posterRef = React.useRef(null);
       const [box, setBox] = React.useState({ width: 0, height: 0 });
       const [layout, setLayout] = React.useState([]);
+      const [guides, setGuides] = React.useState([]);
+      const layoutRef = React.useRef([]);
       const dragRef = React.useRef(null);
 
       React.useEffect(() => {
@@ -1553,6 +1572,8 @@ void main(){
       const width = Math.max(1, Math.floor(preset.width * scale));
       const height = Math.max(1, Math.floor(preset.height * scale));
 
+      const snapRef = React.useRef(null);
+
       const startDrag = (event, id) => {
         event.preventDefault();
         const poster = posterRef.current;
@@ -1570,19 +1591,62 @@ void main(){
         const move = (moveEvent) => {
           const current = dragRef.current;
           if (!current) return;
-          const x = (moveEvent.clientX - current.rect.left - current.dx) / current.rect.width;
-          const y = (moveEvent.clientY - current.rect.top - current.dy) / current.rect.height;
+          const w = current.rect.width;
+          const h = current.rect.height;
+          let x = (moveEvent.clientX - current.rect.left - current.dx) / w;
+          let y = (moveEvent.clientY - current.rect.top - current.dy) / h;
+          // Alignment snapping: edges and mid-lines of this layer vs the canvas
+          // and the other layers, in logical poster pixels.
+          const preset = parseSize(store.spec.size);
+          const entry = layoutRef.current.find((item) => item.id === current.id);
+          const lw = entry ? entry.width / preset.width : 0;
+          const lh = entry ? entry.height / preset.height : 0;
+          const xTargets = [0, 0.5, 1];
+          const yTargets = [0, 0.5, 1];
+          const snapPx = 6;
+          const xTol = snapPx / w;
+          const yTol = snapPx / h;
+          const others = layoutRef.current.filter((item) => item.id !== current.id);
+          for (const other of others) {
+            const otherW = other.width / preset.width;
+            const otherH = other.height / preset.height;
+            xTargets.push(other.x / preset.width, other.x / preset.width + otherW / 2, (other.x + other.width) / preset.width);
+            yTargets.push(other.y / preset.height, other.y / preset.height + otherH / 2, (other.y + other.height) / preset.height);
+          }
+          let snappedX = null;
+          let snappedY = null;
+          const anchorsX = [x, x + lw / 2, x + lw];
+          const anchorsY = [y, y + lh / 2, y + lh];
+          for (const t of xTargets) {
+            for (let i = 0; i < 3; i += 1) {
+              if (Math.abs(anchorsX[i] - t) <= xTol) { snappedX = t - (i === 1 ? lw / 2 : i === 2 ? lw : 0); break; }
+            }
+            if (snappedX !== null) break;
+          }
+          for (const t of yTargets) {
+            for (let i = 0; i < 3; i += 1) {
+              if (Math.abs(anchorsY[i] - t) <= yTol) { snappedY = t - (i === 1 ? lh / 2 : i === 2 ? lh : 0); break; }
+            }
+            if (snappedY !== null) break;
+          }
+          const guides = [];
+          if (snappedX !== null) { x = snappedX; guides.push({ axis: 'x', pos: snappedX + lw / 2 }); }
+          if (snappedY !== null) { y = snappedY; guides.push({ axis: 'y', pos: snappedY + lh / 2 }); }
+          snapRef.current = guides;
+          setGuides(guides);
           store.applySpec({
-            layers: store.spec.layers.map((entry) => (entry.id === current.id
-              ? { ...entry, x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) }
-              : entry)),
+            layers: store.spec.layers.map((entryItem) => (entryItem.id === current.id
+              ? { ...entryItem, x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) }
+              : entryItem)),
           }, false, false);
         };
         const up = () => {
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
           dragRef.current = null;
+          snapRef.current = null;
           store.commitTransaction();
+          setGuides([]);
         };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
@@ -1595,10 +1659,11 @@ void main(){
         const top = (entry.y / preset.height) * height;
         const boxWidth = Math.max((entry.width / preset.width) * width, 26);
         const boxHeight = Math.max((entry.height / preset.height) * height, 22);
+        const locked = Boolean(entry.locked);
         return h('div', {
           key: entry.id,
-          title: layer.text,
-          onPointerDown: (event) => startDrag(event, entry.id),
+          title: locked ? store.translate('lockedLayer') : layer.text,
+          onPointerDown: locked ? undefined : (event) => startDrag(event, entry.id),
           style: {
             position: 'absolute',
             left,
@@ -1606,13 +1671,20 @@ void main(){
             width: boxWidth,
             height: boxHeight,
             boxSizing: 'border-box',
-            cursor: 'move',
-            border: '1px dashed rgba(255,255,255,0.32)',
+            cursor: locked ? 'default' : 'move',
+            border: `1px dashed ${locked ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.32)'}`,
             borderRadius: 4,
             touchAction: 'none',
           },
-        });
+        }, locked ? h('span', {
+          key: 'padlock',
+          style: { position: 'absolute', right: 3, top: 1, fontSize: 9, lineHeight: '12px', color: 'rgba(255,255,255,0.85)', pointerEvents: 'none' },
+        }, '🔒') : null);
       });
+
+      const guideLines = guides.map((guide, index) => (guide.axis === 'x'
+        ? h('div', { key: `g${index}`, style: { position: 'absolute', left: `${guide.pos * 100}%`, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(80,190,255,0.9)', pointerEvents: 'none' } })
+        : h('div', { key: `g${index}`, style: { position: 'absolute', top: `${guide.pos * 100}%`, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(80,190,255,0.9)', pointerEvents: 'none' } })));
 
       return h('div', {
         ref: stageRef,
@@ -1638,8 +1710,9 @@ void main(){
           touchAction: 'none',
         },
       }, [
-        h(PosterCanvas, { key: 'canvas', spec: props.spec, width, height, onLayout: setLayout }),
+        h(PosterCanvas, { key: 'canvas', spec: props.spec, width, height, onLayout: (entries) => { layoutRef.current = entries; setLayout(entries); } }),
         ...handles,
+        ...guideLines,
       ]));
     }
 
@@ -1956,6 +2029,43 @@ void main(){
         }
       };
 
+      const exportAllSizes = async () => {
+        if (typeof window.showDirectoryPicker !== 'function') {
+          setStatus(store.translate('export'));
+          return;
+        }
+        store.pickerActive = true;
+        store.lastPickerAt = 0;
+        let dir = null;
+        try {
+          dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+        } catch (error) {
+          if (error && error.name === 'AbortError') { setStatus(''); return; }
+          setStatus(String(error && error.message ? error.message : error));
+          return;
+        } finally {
+          store.pickerActive = false;
+          store.lastPickerAt = Date.now();
+        }
+        try {
+          let done = 0;
+          for (const key of SIZE_ORDER) {
+            setStatus(`${store.translate('exportAllProgress')} ${done + 1}/${SIZE_ORDER.length} · ${key}`);
+            const blob = await renderPng({ ...store.spec, size: key });
+            if (!blob) continue;
+            const handle = await dir.getFileHandle(`poster-${key}.png`, { create: true });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            done += 1;
+          }
+          setStatus(`${store.translate('exportAllDone')} (${done})`);
+        } catch (error) {
+          console.warn('poster-studio: the sizes could not be exported', error);
+          setStatus(String(error && error.message ? error.message : error));
+        }
+      };
+
       const askAgent = async () => {
         const sessionId = store.sessionId;
         const client = store.ctx;
@@ -2169,6 +2279,13 @@ void main(){
           onClick: (event) => event.stopPropagation(),
           style: { display: 'flex', alignItems: 'center', gap: 6 },
         }, [
+          h('button', {
+            key: 'lock',
+            type: 'button',
+            title: layer.locked ? store.translate('unlock') : store.translate('lock'),
+            onClick: () => patchLayer(layer.id, { locked: !layer.locked }),
+            style: { padding: '0 4px', border: 'none', background: 'transparent', color: layer.locked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-label-tertiary)', fontSize: 12, cursor: 'pointer' },
+          }, layer.locked ? '🔒' : '🔓'),
           ...layerMoveButtons(layer, index),
           ...colorInputs,
           spec.layers.length > 1 ? layerRemoveButton(layer) : null,
@@ -2913,6 +3030,21 @@ void main(){
               cursor: 'pointer',
             },
           }, store.translate('export')),
+          h('button', {
+            key: 'exportAll',
+            type: 'button',
+            title: store.translate('exportAllHint'),
+            onClick: () => { void exportAllSizes(); },
+            style: {
+              padding: '5px 12px',
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-brand-primary)',
+              background: 'transparent',
+              color: 'var(--dsw-alias-brand-primary)',
+              fontSize: 12,
+              cursor: 'pointer',
+            },
+          }, store.translate('exportAll')),
           h('button', {
             key: 'undo',
             type: 'button',

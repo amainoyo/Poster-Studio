@@ -196,6 +196,7 @@ function normalizeLayer(value, fallback) {
       : fallback.weight,
     italic: typeof source.italic === 'boolean' ? source.italic : Boolean(fallback.italic),
     underline: typeof source.underline === 'boolean' ? source.underline : Boolean(fallback.underline),
+    locked: typeof source.locked === 'boolean' ? source.locked : Boolean(fallback.locked),
     font: FONT_KEYS.includes(source.font)
       ? source.font
       : (FONT_KEYS.includes(fallback.font) ? fallback.font : ''),
@@ -666,6 +667,7 @@ export function apply(ctx, config = {}) {
                   weight: { type: 'number' },
                   italic: { type: 'boolean' },
                   underline: { type: 'boolean' },
+                  locked: { type: 'boolean' },
                   font: { type: 'string', enum: ['', 'noto-sans-sc', 'noto-serif-sc', 'zcool-xiaowei', 'zcool-huangyou', 'ma-shan-zheng', 'playfair'] },
                   src: { type: 'string' },
                   align: { type: 'string' },

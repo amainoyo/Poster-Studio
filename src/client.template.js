@@ -904,6 +904,7 @@ void main(){
           output.height = height;
           const context = output.getContext('2d');
           context.drawImage(renderer.background, 0, 0, width, height);
+          context.drawImage(renderer.bgOverlay, 0, 0, width, height);
           context.drawImage(renderer.text, 0, 0, width, height);
           outputs.push(output);
         }
@@ -1256,8 +1257,12 @@ void main(){
      */
     function createRenderer() {
       const background = document.createElement('canvas');
+      const bgOverlay = document.createElement('canvas');
       const text = document.createElement('canvas');
       background.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
+      // The backdrop canvas owns a WebGL context, so the background image
+      // composites on its own 2D layer between the shader and the text.
+      bgOverlay.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;';
       text.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
       let gl = null;
       let program = null;
@@ -1382,26 +1387,26 @@ void main(){
 
       /** Composite the optional background image over the shader at cover fit. */
       const drawBgImage = () => {
+        const ctx = bgOverlay.getContext('2d');
+        if (!ctx) return;
+        // Repaints accumulate on this layer, so start every frame clean.
+        ctx.clearRect(0, 0, width, height);
         const src = (spec.background && spec.background.image) || '';
         const alpha = Math.min(1, Math.max(0, Number((spec.background && spec.background.opacity !== undefined ? spec.background.opacity : 1))));
         if (!src || alpha <= 0.01) return;
         if (src !== bgSrc) {
           bgSrc = src;
-          bgImage = cachedImage(src, repaint);
+          bgImage = null;
         }
+        // Re-query the cache every frame until the (large, async) image
+        // decodes: the first paint after a spec change usually finds it
+        // not ready yet, and the decode-complete repaint must pick it up.
+        if (!bgImage) bgImage = cachedImage(src, repaint);
         if (!bgImage) return;
-        const ratio = bgImage.naturalHeight / bgImage.naturalWidth;
-        const box = width / height;
-        let scale;
-        if (ratio > box) {
-          scale = (width * ratio / height);
-        } else {
-          scale = (height / ratio) / width;
-        }
-        const drawWidth = width / scale;
-        const drawHeight = drawWidth * ratio;
-        const ctx = background.getContext('2d');
-        if (!ctx) return;
+        // Cover fit: scale up so both axes fill the poster, then centre.
+        const scale = Math.max(width / bgImage.naturalWidth, height / bgImage.naturalHeight);
+        const drawWidth = bgImage.naturalWidth * scale;
+        const drawHeight = bgImage.naturalHeight * scale;
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.drawImage(bgImage, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
@@ -1443,6 +1448,7 @@ void main(){
 
       return {
         background,
+        bgOverlay,
         text,
         /**
          * Resize both layers. The backdrop renders at the given resolution;
@@ -1458,6 +1464,8 @@ void main(){
           height = Math.max(1, Math.round(nextHeight));
           background.width = width;
           background.height = height;
+          bgOverlay.width = width;
+          bgOverlay.height = height;
           const logicalW = Math.max(1, Math.round(logicalWidth ?? width));
           const logicalH = Math.max(1, Math.round(logicalHeight ?? height));
           posterWidth = logicalW;
@@ -1542,6 +1550,7 @@ void main(){
         output.height = preset.height;
         const context = output.getContext('2d');
         context.drawImage(renderer.background, 0, 0, preset.width, preset.height);
+        context.drawImage(renderer.bgOverlay, 0, 0, preset.width, preset.height);
         context.drawImage(renderer.text, 0, 0, preset.width, preset.height);
         return await new Promise((resolve) => output.toBlob(resolve, 'image/png'));
       } finally {
@@ -1565,6 +1574,7 @@ void main(){
         const host = hostRef.current;
         if (host) {
           host.appendChild(renderer.background);
+          host.appendChild(renderer.bgOverlay);
           host.appendChild(renderer.text);
         }
         renderer.setSize(props.width, props.height, preset.width, preset.height);

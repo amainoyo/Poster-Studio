@@ -130,7 +130,7 @@ window.__ModuleLoader__.load({
       c5: '#000000',
     };
 
-    const PALETTES = [
+    const BUILTIN_PALETTES = [
       { name: '官网', colors: { c1: '#000000', c2: '#000000', c3: '#204a7e', c4: '#cec8bb', c5: '#000000' } },
       { name: '靛蓝金', colors: { c1: '#05070f', c2: '#0a1024', c3: '#2b4a9d', c4: '#e8b06a', c5: '#0b1020' } },
       { name: '墨绿', colors: { c1: '#040a08', c2: '#0a1410', c3: '#1f5a4a', c4: '#d8e2c0', c5: '#08120e' } },
@@ -138,6 +138,7 @@ window.__ModuleLoader__.load({
       { name: '暗红', colors: { c1: '#0d0507', c2: '#170a0c', c3: '#8f2f39', c4: '#f0d0b0', c5: '#120708' } },
       { name: '石墨', colors: { c1: '#08090b', c2: '#101216', c3: '#4a5058', c4: '#e8e8e6', c5: '#0b0c0e' } },
     ];
+    let PALETTES = BUILTIN_PALETTES;
 
     const LAYER_LABELS = { title: 'layerTitle', subtitle: 'layerSubtitle', footer: 'layerFooter' };
 
@@ -316,6 +317,11 @@ void main(){
         saveVersion: 'Save this design as a named version',
         versionSaved: 'Version saved',
         versionLoaded: 'Version loaded',
+        versionsEmpty: 'No saved versions yet.',
+        applyPalette: 'Apply this palette.',
+        deletePalette: 'Click to delete this custom palette.',
+        savePalette: 'Save current colours as a palette',
+        paletteSaved: 'Palette saved',
         weight: 'Weight',
         font: 'Font',
         fontDefault: 'Default',
@@ -400,6 +406,11 @@ void main(){
         saveVersion: '把当前设计保存为命名版本',
         versionSaved: '版本已保存',
         versionLoaded: '版本已载入',
+        versionsEmpty: '还没有保存的版本。',
+        applyPalette: '应用此配色。',
+        deletePalette: '点击删除此自定义配色。',
+        savePalette: '把当前颜色保存为配色方案',
+        paletteSaved: '配色已保存',
         libraryCleared: '图库已清空',
         weight: '字重',
         font: '字体',
@@ -607,6 +618,8 @@ void main(){
       /** Named snapshots kept across sessions. */
       versions: [],
       versionsLoaded: false,
+      customPaletteMap: {},
+      customPalettes: [],
       library: [],
       variants: [],
       listeners: new Set(),
@@ -709,14 +722,15 @@ void main(){
       /**
        * Save the current specification as a named version.
        * @param {string} name - version name.
+       * @param {string} thumb - small preview data URL for the picker.
        * @returns {Promise<boolean>} whether the Host accepted it.
        */
-      async saveVersion(name) {
+      async saveVersion(name, thumb = '') {
         try {
           const response = await fetch('/poster-studio/versions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ name, spec: this.spec }),
+            body: JSON.stringify({ name, spec: this.spec, thumb }),
           });
           if (!response.ok) return false;
           const data = await response.json();
@@ -1921,6 +1935,7 @@ void main(){
       const [customSize, setCustomSize] = React.useState(null);
       const [collapsedIds, setCollapsedIds] = React.useState([]);
       const [sizeTip, setSizeTip] = React.useState(null);
+      const [versionsOpen, setVersionsOpen] = React.useState(false);
       const [status, setStatus] = React.useState('');
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
@@ -2892,7 +2907,121 @@ void main(){
         }),
       ]);
 
+      const refreshPalettes = () => {
+        store.customPalettes = Object.keys(store.customPaletteMap ?? {});
+        PALETTES = BUILTIN_PALETTES.concat(store.customPalettes.map((name) => ({ name, colors: store.customPaletteMap[name] })));
+      };
+
+      const loadCustomPalettes = async () => {
+        try {
+          const response = await fetch('/poster-studio/palettes');
+          if (!response.ok) return;
+          const data = await response.json();
+          const map = {};
+          for (const entry of Array.isArray(data.palettes) ? data.palettes : []) {
+            if (!entry || typeof entry.name !== 'string' || !entry.colors) continue;
+            const colors = {};
+            for (const key of COLOR_KEYS) {
+              const value = normalizeColor(entry.colors[key]);
+              colors[key] = value ?? '#000000';
+            }
+            map[entry.name] = colors;
+          }
+          store.customPaletteMap = map;
+          refreshPalettes();
+          store.emit();
+        } catch { /* built-in palettes stay available */ }
+      };
+
+      const saveCustomPalette = async (name, colors) => {
+        const next = { ...colors };
+        for (const key of COLOR_KEYS) {
+          const value = normalizeColor(next[key]);
+          next[key] = value ?? '#000000';
+        }
+        try {
+          const response = await fetch('/poster-studio/palettes', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ name, colors: next }),
+          });
+          if (!response.ok) return;
+          const data = await response.json();
+          const map = {};
+          for (const entry of Array.isArray(data.palettes) ? data.palettes : []) {
+            if (!entry || typeof entry.name !== 'string' || !entry.colors) continue;
+            const fixed = {};
+            for (const key of COLOR_KEYS) {
+              const value = normalizeColor(entry.colors[key]);
+              fixed[key] = value ?? '#000000';
+            }
+            map[entry.name] = fixed;
+          }
+          store.customPaletteMap = map;
+          refreshPalettes();
+          store.emit();
+          setStatus(store.translate('paletteSaved'));
+        } catch { /* the palette stays local */ }
+      };
+
+      const deleteCustomPalette = async (name) => {
+        try {
+          const response = await fetch(`/poster-studio/palettes?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+          if (!response.ok) return;
+          const data = await response.json();
+          const map = { ...(store.customPaletteMap ?? {}) };
+          delete map[name];
+          for (const entry of Array.isArray(data.palettes) ? data.palettes : []) {
+            if (entry && typeof entry.name === 'string' && entry.colors) map[entry.name] = entry.colors;
+          }
+          store.customPaletteMap = map;
+          refreshPalettes();
+          store.emit();
+        } catch { /* keep the list */ }
+      };
+
+      React.useEffect(() => {
+        void loadCustomPalettes();
+      }, []);
+
       const palette = h('div', { key: 'pane-palette', style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [
+        h('div', { key: 'palettes', style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, PALETTES.map((item) => h('button', {
+          key: item.name,
+          type: 'button',
+          title: (store.customPalettes ?? []).includes(item.name) ? store.translate('deletePalette') : store.translate('applyPalette'),
+          onClick: () => {
+            if ((store.customPalettes ?? []).includes(item.name)) {
+              void deleteCustomPalette(item.name);
+              return;
+            }
+            store.applySpec({ colors: { ...item.colors } });
+          },
+          onContextMenu: (event) => {
+            if ((store.customPalettes ?? []).includes(item.name)) return;
+            event.preventDefault();
+            const saved = window.prompt(store.translate('savePalette'), item.name);
+            if (saved !== null) void saveCustomPalette(saved.trim() || item.name, item.colors);
+          },
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 8px',
+            borderRadius: 7,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 11,
+            cursor: 'pointer',
+          },
+        }, [
+          h('span', {
+            key: 'dot',
+            style: { width: 10, height: 10, borderRadius: 3, background: item.colors.c3, border: `1px solid ${item.colors.c4}` },
+          }),
+          item.name,
+          (store.customPalettes ?? []).includes(item.name) ? h('span', { key: 'x', style: { color: 'var(--dsw-alias-label-tertiary)' } }, '✕') : null,
+        ]))),
         h('div', { key: 'swatches', style: { display: 'flex', gap: 6 } }, COLOR_KEYS.map((key) => h('label', {
           key,
           title: key,
@@ -3282,32 +3411,6 @@ void main(){
               cursor: 'pointer',
             },
           }, store.translate('exportAll')),
-          h('select', {
-            key: 'versions',
-            title: store.translate('versions'),
-            value: '',
-            onFocus: () => { void store.loadVersions(); },
-            onChange: (event) => {
-              const id = event.target.value;
-              event.target.value = '';
-              if (!id) return;
-              void (async () => {
-                try {
-                  const response = await fetch(`/poster-studio/version?id=${encodeURIComponent(id)}`);
-                  if (!response.ok) return;
-                  const data = await response.json();
-                  if (data && data.spec) {
-                    store.applySpec(data.spec);
-                    setStatus(store.translate('versionLoaded'));
-                  }
-                } catch { /* the load failed silently */ }
-              })();
-            },
-            style: { padding: '4px 6px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, maxWidth: 110, outline: 'none' },
-          }, [
-            h('option', { key: '', value: '' }, store.translate('versions')),
-            ...(store.versions ?? []).map((entry) => h('option', { key: entry.id, value: entry.id }, entry.name)),
-          ]),
           h('button', {
             key: 'saveVersion',
             type: 'button',
@@ -3315,10 +3418,48 @@ void main(){
             onClick: () => {
               const name = window.prompt(store.translate('saveVersion'), '');
               if (name === null) return;
-              void store.saveVersion(name).then((ok) => { if (ok) setStatus(store.translate('versionSaved')); });
+              void renderPng(store.spec).then((blob) => {
+                let thumb = '';
+                const done = (data) => {
+                  const base64 = data.slice(data.indexOf(',') + 1);
+                  void store.saveVersion(name, base64).then((ok) => { if (ok) setStatus(store.translate('versionSaved')); });
+                };
+                if (!blob) { done(''); return; }
+                const image = new Image();
+                const objectUrl = URL.createObjectURL(blob);
+                image.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  const ratio = image.naturalHeight / image.naturalWidth;
+                  canvas.width = 128;
+                  canvas.height = Math.max(1, Math.round(128 * ratio));
+                  canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                  URL.revokeObjectURL(objectUrl);
+                  done(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                image.onerror = () => { URL.revokeObjectURL(objectUrl); done(''); };
+                image.src = objectUrl;
+              });
             },
             style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', fontSize: 12, cursor: 'pointer' },
           }, '💾'),
+          h('button', {
+            key: 'versions',
+            type: 'button',
+            title: store.translate('versions'),
+            onClick: () => {
+              void store.loadVersions();
+              setVersionsOpen((current) => !current);
+            },
+            style: {
+              padding: '5px 10px',
+              borderRadius: 7,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: versionsOpen ? 'var(--dsw-alias-bg-layer-2)' : 'transparent',
+              color: 'var(--dsw-alias-label-secondary)',
+              fontSize: 12,
+              cursor: 'pointer',
+            },
+          }, '🕘'),
           h('button', {
             key: 'undo',
             type: 'button',
@@ -3368,6 +3509,63 @@ void main(){
               boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
             },
           }, sizeTip.text)
+          : null,
+        versionsOpen
+          ? h('div', {
+            key: 'versionsDialog',
+            onMouseDown: (event) => event.stopPropagation(),
+            onClick: () => setVersionsOpen(false),
+            style: { position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' },
+          }, h('div', {
+            onClick: (event) => event.stopPropagation(),
+            style: { width: 300, maxHeight: '70%', overflowY: 'auto', padding: 12, borderRadius: 12, border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-overlay)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 8 },
+          }, [
+            h('span', { key: 'title', style: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, store.translate('versions')),
+            (store.versions ?? []).length === 0
+              ? h('span', { key: 'empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, store.translate('versionsEmpty'))
+              : null,
+            ...(store.versions ?? []).map((entry) => h('div', {
+              key: entry.id,
+              style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1)' },
+            }, [
+              entry.thumb
+                ? h('img', {
+                  key: 'thumb',
+                  src: `data:image/jpeg;base64,${entry.thumb}`,
+                  alt: '',
+                  style: { width: 34, height: 44, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1)', background: '#000', flex: '0 0 auto' },
+                })
+                : h('span', { key: 'dot', style: { width: 34, height: 44, borderRadius: 4, background: 'var(--dsw-alias-bg-layer-2)', flex: '0 0 auto' } }),
+              h('div', {
+                key: 'info',
+                style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer' },
+                onClick: () => {
+                  void (async () => {
+                    try {
+                      const response = await fetch(`/poster-studio/version?id=${encodeURIComponent(entry.id)}`);
+                      if (!response.ok) return;
+                      const data = await response.json();
+                      if (data && data.spec) {
+                        store.applySpec(data.spec);
+                        setStatus(store.translate('versionLoaded'));
+                        setVersionsOpen(false);
+                      }
+                    } catch { /* the load failed silently */ }
+                  })();
+                },
+              }, [
+                h('span', { key: 'name', style: { fontSize: 12, color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
+                h('span', { key: 'time', style: { fontSize: 10, color: 'var(--dsw-alias-label-tertiary)' } }, String(entry.savedAt ?? '').slice(0, 16).replace('T', ' ')),
+              ]),
+              h('button', {
+                key: 'del',
+                type: 'button',
+                title: store.translate('removeLayer'),
+                onClick: () => { void store.deleteVersion(entry.id); },
+                style: { padding: '2px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, cursor: 'pointer' },
+              }, '✕'),
+            ])),
+          ]))
           : null,
         customSize
           ? h('div', {

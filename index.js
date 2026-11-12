@@ -396,6 +396,31 @@ export function apply(ctx, config = {}) {
   const statePath = join(profileRoot, 'spec.json');
   const versionsPath = join(profileRoot, 'versions.json');
   const versionsDir = join(profileRoot, 'versions');
+  const palettesPath = join(profileRoot, 'palettes.json');
+  const PALETTE_COLOR_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+
+  /**
+   * Read the persisted custom palette list.
+   * @returns {Promise<Array<Record<string, any>>>} stored palettes.
+   */
+  const readPalettes = async () => {
+    try {
+      const parsed = JSON.parse(await readFile(palettesPath, 'utf8'));
+      return Array.isArray(parsed) ? parsed.filter((entry) => entry && typeof entry.name === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
+
+  /**
+   * Persist the custom palette list.
+   * @param {Array<Record<string, any>>} entries - palette entries.
+   * @returns {Promise<void>} resolves when written.
+   */
+  const writePalettes = async (entries) => {
+    await mkdir(profileRoot, { recursive: true });
+    await writeFile(palettesPath, JSON.stringify(entries, null, 2), 'utf8');
+  };
 
   /**
    * Read the persisted version index.
@@ -649,13 +674,15 @@ export function apply(ctx, config = {}) {
             return;
           }
           const name = typeof payload.name === 'string' ? payload.name.slice(0, 40) : '';
+          const thumb = typeof payload.thumb === 'string' && payload.thumb.startsWith('data:image/') ? payload.thumb : '';
           const entry = {
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             name: name.length > 0 ? name : new Date().toLocaleString(),
             savedAt: new Date().toISOString(),
+            thumb,
           };
           await mkdir(versionsDir, { recursive: true });
-          await writeFile(join(versionsDir, `${entry.id}.json`), JSON.stringify(normalizeSpec(payload.spec, base)), 'utf8');
+          await writeFile(join(versionsDir, `${entry.id}.json`), JSON.stringify({ spec: normalizeSpec(payload.spec, base), thumb }), 'utf8');
           const entries = [entry, ...await readVersions()].slice(0, 50);
           await writeVersions(entries);
           sendJson(res, 200, { versions: entries });
@@ -687,7 +714,9 @@ export function apply(ctx, config = {}) {
         if (req.method === 'GET') {
           try {
             const data = await readFile(join(versionsDir, `${safe}.json`));
-            sendJson(res, 200, { spec: JSON.parse(data.toString('utf8')) });
+            const parsed = JSON.parse(data.toString('utf8'));
+            const inner = parsed && parsed.spec ? parsed.spec : parsed;
+            sendJson(res, 200, { spec: inner });
           } catch {
             res.statusCode = 404;
             res.end();
@@ -707,12 +736,74 @@ export function apply(ctx, config = {}) {
       },
     });
 
+    const disposePalettes = webServer.register({
+      kind: 'exact',
+      path: '/poster-studio/palettes',
+      handler: async (req, res) => {
+        const rejection = connection?.requestRejection(req);
+        if (rejection !== undefined) {
+          res.statusCode = rejection;
+          res.end();
+          return;
+        }
+        if (req.method === 'GET') {
+          sendJson(res, 200, { palettes: await readPalettes() });
+          return;
+        }
+        if (req.method === 'POST') {
+          const body = await readBoundedBytes(req);
+          if (body === null) {
+            sendJson(res, 413, { message: 'palette payload too large' });
+            return;
+          }
+          let payload;
+          try {
+            payload = JSON.parse(body.toString('utf8'));
+          } catch {
+            sendJson(res, 400, { message: 'palette payload must be a JSON object' });
+            return;
+          }
+          if (!payload || typeof payload !== 'object' || typeof payload.name !== 'string') {
+            sendJson(res, 400, { message: 'palette payload needs a name' });
+            return;
+          }
+          const name = payload.name.slice(0, 24);
+          if (name.length === 0) {
+            sendJson(res, 400, { message: 'palette name is empty' });
+            return;
+          }
+          const colors = {};
+          for (const key of PALETTE_COLOR_KEYS) {
+            const value = payload.colors && payload.colors[key];
+            colors[key] = typeof value === 'string' && HEX_COLOR.test(value) ? value.toLowerCase() : '#000000';
+          }
+          const entries = (await readPalettes()).filter((entry) => entry.name !== name);
+          entries.unshift({ name, colors });
+          entries.length = Math.min(entries.length, 24);
+          await writePalettes(entries);
+          sendJson(res, 200, { palettes: entries });
+          return;
+        }
+        if (req.method === 'DELETE') {
+          const name = new URL(req.url ?? '', 'http://localhost').searchParams.get('name') ?? '';
+          const entries = (await readPalettes()).filter((entry) => entry.name !== name);
+          await writePalettes(entries);
+          sendJson(res, 200, { palettes: entries });
+          return;
+        }
+        res.statusCode = 405;
+        res.setHeader('allow', 'GET, POST, DELETE');
+        res.end();
+      },
+    });
+
     return () => {
       disposeSpec();
       disposeExport();
       disposeLibrary();
       disposeVersions();
       disposeVersionOne();
+      disposePalettes();
     };
   });
 

@@ -664,17 +664,19 @@ void main(){
       pickerActive: false,
       lastPickerAt: 0,
       /**
-       * Subscribe to store changes.
+       * Subscribe to store changes. Bound so it survives being passed as a
+       * bare function reference (React's useSyncExternalStore calls it
+       * detached, where `this` would be undefined).
        * @param {() => void} listener - change listener.
        * @returns {() => void} the unsubscribe function.
        */
-      subscribe(listener) {
-        this.listeners.add(listener);
-        return () => { this.listeners.delete(listener); };
+      subscribe: (listener) => {
+        store.listeners.add(listener);
+        return () => { store.listeners.delete(listener); };
       },
       /** Notify every listener. */
-      emit() {
-        for (const listener of Array.from(this.listeners)) {
+      emit: () => {
+        for (const listener of Array.from(store.listeners)) {
           try { listener(); } catch { /* one broken listener must not stop the rest */ }
         }
       },
@@ -693,7 +695,7 @@ void main(){
           this.future.length = 0;
         }
         this.spec = next;
-        this.emit();
+        store.emit();
         if (sync) void this.push();
       },
       /**
@@ -723,7 +725,7 @@ void main(){
         const next = mergeSpec(defaultSpec(), spec);
         if (JSON.stringify(next) === JSON.stringify(this.spec)) return;
         this.spec = next;
-        this.emit();
+        store.emit();
       },
       /** Undo the last committed change. */
       undo() {
@@ -731,7 +733,7 @@ void main(){
         if (previous === undefined) return;
         this.future.push(JSON.stringify(this.spec));
         this.spec = JSON.parse(previous);
-        this.emit();
+        store.emit();
         void this.push();
       },
       /** Redo the last undone change. */
@@ -740,7 +742,7 @@ void main(){
         if (next === undefined) return;
         this.history.push(JSON.stringify(this.spec));
         this.spec = JSON.parse(next);
-        this.emit();
+        store.emit();
         void this.push();
       },
       /** Fetch named versions from the Host once. */
@@ -752,7 +754,7 @@ void main(){
             const data = await response.json();
             this.versions = Array.isArray(data.versions) ? data.versions : [];
             this.versionsLoaded = true;
-            this.emit();
+            store.emit();
           }
         } catch { /* versions stay unavailable */ }
       },
@@ -773,7 +775,7 @@ void main(){
           const data = await response.json();
           this.versions = Array.isArray(data.versions) ? data.versions : this.versions;
           this.versionsLoaded = true;
-          this.emit();
+          store.emit();
           return true;
         } catch { return false; }
       },
@@ -788,7 +790,7 @@ void main(){
           if (response.ok) {
             const data = await response.json();
             this.versions = Array.isArray(data.versions) ? data.versions : this.versions;
-            this.emit();
+            store.emit();
           }
         } catch { /* keep the list */ }
       },
@@ -826,7 +828,7 @@ void main(){
           if (text === this.lastRemote) return false;
           this.lastRemote = text;
           this.spec = mergeSpec(defaultSpec(), JSON.parse(text));
-          this.emit();
+          store.emit();
           return true;
         } catch (error) {
           if (!this.warned) {
@@ -2084,6 +2086,7 @@ void main(){
       const [drafts, setDrafts] = React.useState({});
       const imageFileInput = React.useRef(null);
       const pendingImageLayer = React.useRef(null);
+      const bgFileInput = React.useRef(null);
       const [variants, setVariants] = React.useState([]);
       const [library, setLibrary] = React.useState([]);
       const [position, setPosition] = React.useState(() => {
@@ -3350,7 +3353,6 @@ void main(){
 
       const tipRaf = React.useRef(0);
       const tipPos = React.useRef(null);
-      const bgFileInput = React.useRef(null);
 
       /**
        * Position the hover size tooltip, throttled to one animation frame.

@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-poster-studio',
+  id: '@oyang/dsh-poster-studio',
   factory(require) {
     // Vendored React pair. The harness frame renders plugin occupants with
     // its own bundled React while the module loader may hand out a different

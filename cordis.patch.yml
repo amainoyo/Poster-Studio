@@ -1,3 +1,3 @@
 - insert:
     - id: poster-studio
-      name: '@local/dsh-poster-studio'
+      name: '@oyang/dsh-poster-studio'

@@ -20,7 +20,11 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "node build.cjs"
+    "build": "node build.cjs",
+    "prepack": "node build.cjs"
+  },
+  "engines": {
+    "dsh": ">=0.2.0"
   },
   "dsh": {
     "bundle": {

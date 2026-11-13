@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "size": "1080x1350",
+  "layers": [
+    {
+      "id": "title",
+      "kind": "text",
+      "text": "一切皆插件",
+      "size": 116,
+      "weight": 700,
+      "align": "center",
+      "x": 0.5,
+      "y": 0.44,
+      "color": "#f4f4f8",
+      "lineHeight": 1.25,
+      "letterSpacing": 6,
+      "maxWidth": 0.86,
+      "shadow": 0.35
+    },
+    {
+      "id": "subtitle",
+      "kind": "text",
+      "text": "POSTER STUDIO",
+      "size": 24,
+      "weight": 500,
+      "align": "center",
+      "x": 0.5,
+      "y": 0.56,
+      "color": "#b9b9c4",
+      "letterSpacing": 14,
+      "maxWidth": 0.9
+    },
+    {
+      "id": "footer",
+      "kind": "text",
+      "text": "powered by DeepSeek Harness",
+      "size": 22,
+      "weight": 400,
+      "align": "center",
+      "x": 0.5,
+      "y": 0.92,
+      "color": "#8f8f9a",
+      "maxWidth": 0.9
+    }
+  ],
+  "colors": {
+    "c1": "#000000",
+    "c2": "#000000",
+    "c3": "#204a7e",
+    "c4": "#cec8bb",
+    "c5": "#000000"
+  },
+  "shader": {
+    "scale": 1.19,
+    "offsetX": -1.24,
+    "offsetY": -0.48,
+    "grain": 0.005,
+    "bloom": 0.4,
+    "vignette": 0.38,
+    "lightCore": 0.14,
+    "lightHalo": 0.2,
+    "speed": 1,
+    "paused": false
+  },
+  "background": { "opacity": 1 }
+}

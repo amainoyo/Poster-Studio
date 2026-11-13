@@ -573,9 +573,16 @@ void main(){
           }
         }
       }
+      if (Array.isArray(patch.remove)) {
+        const doomed = new Set(patch.remove.filter((id) => typeof id === 'string'));
+        next.layers = next.layers.filter((layer) => !doomed.has(layer.id));
+      }
       if (Array.isArray(patch.layers)) {
         const GENERIC = { id: 'text', text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.68, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 };
-        const merged = [];
+        // Incremental semantics: layers named in the patch update in place or get
+        // appended; unlisted layers survive. remove deletes by id; replace:true
+        // swaps the whole set (import / version rollback payloads use it).
+        const list = patch.replace === true ? [] : next.layers.map((layer) => ({ ...layer }));
         for (const entry of patch.layers) {
           if (!entry || typeof entry !== 'object') continue;
           const fallback = base.layers.find((candidate) => candidate.id === entry.id) ?? GENERIC;
@@ -610,11 +617,11 @@ void main(){
           const outlineColor = normalizeColor(entry.outlineColor);
           if (outlineColor !== undefined) layer.outlineColor = outlineColor;
           if (typeof entry.font === 'string') layer.font = entry.font;
-          if (merged.some((done) => done.id === layer.id)) continue;
-          merged.push(layer);
-          if (merged.length >= 12) break;
+          const at = list.findIndex((done) => done.id === layer.id);
+          if (at >= 0) list[at] = layer;
+          else if (list.length < 12) list.push(layer);
         }
-        if (merged.length > 0) next.layers = merged;
+        next.layers = list.slice(0, 12);
       }
       return next;
     }
@@ -2491,7 +2498,7 @@ void main(){
         const reader = new FileReader();
         reader.onload = () => {
           try {
-            store.applySpec(JSON.parse(String(reader.result)));
+            store.applySpec({ ...JSON.parse(String(reader.result)), replace: true });
           } catch (error) {
             console.warn('poster-studio: the preset could not be read', error);
           }
@@ -2531,7 +2538,7 @@ void main(){
 
       const removeLayer = (id) => {
         if (spec.layers.length <= 1) return;
-        store.applySpec({ layers: spec.layers.filter((layer) => layer.id !== id) });
+        store.applySpec({ remove: [id] });
       };
 
       const layerCardStyle = {
@@ -3763,7 +3770,7 @@ void main(){
                       if (!response.ok) return;
                       const data = await response.json();
                       if (data && data.spec) {
-                        store.applySpec(data.spec);
+                        store.applySpec({ ...data.spec, replace: true });
                         setStatus(store.translate('versionLoaded'));
                         setVersionsOpen(false);
                       }

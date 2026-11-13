@@ -308,7 +308,7 @@ const FRIENDLY_LAYERS = { title: 'title', text: 'subtitle', footer: 'footer' };
  * @param {Record<string, any>} patch - friendly patch.
  * @returns {Record<string, unknown>} the patched specification.
  */
-function applyPatch(base, patch) {
+export function applyPatch(base, patch) {
   const next = {
     version: SPEC_VERSION,
     size: base.size,
@@ -342,14 +342,18 @@ function applyPatch(base, patch) {
     if (typeof value === 'string') layer.text = value;
     else if (typeof value === 'number' && Number.isFinite(value)) layer.text = String(value);
   }
+  if (Array.isArray(patch.remove)) {
+    const doomed = new Set(patch.remove.filter((id) => typeof id === 'string'));
+    next.layers = next.layers.filter((layer) => !doomed.has(layer.id));
+  }
   if (Array.isArray(patch.layers)) {
+    if (patch.replace === true) next.layers = [];
     for (const entry of patch.layers) {
       if (!entry || typeof entry !== 'object') continue;
       const existing = next.layers.find((layer) => entry.id !== undefined && layer.id === entry.id);
       if (existing) Object.assign(existing, normalizeLayer(entry, existing));
-      else next.layers.push(normalizeLayer(entry, GENERIC_LAYER));
+      else if (next.layers.length < 12) next.layers.push(normalizeLayer(entry, GENERIC_LAYER));
     }
-    if (next.layers.length > 12) next.layers.length = 12;
   }
   return next;
 }
@@ -980,6 +984,12 @@ export function apply(ctx, config = {}) {
               opacity: { type: 'number', required: false, description: 'Layer opacity, 0 to 1.' },
             },
           },
+        },
+        remove: {
+          type: 'array',
+          required: false,
+          description: 'Layer ids to delete: ["footer"] removes the footer text layer, ["img1", "qr1"] removes image/QR layers. To drop the backdrop image use background.image "" instead.',
+          items: { type: 'string' },
         },
         reset: {
           type: 'boolean',

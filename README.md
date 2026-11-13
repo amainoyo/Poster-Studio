@@ -18,7 +18,8 @@ DeepSeek Harness 桌面版插件：浮动海报设计面板（可拖动 / 缩放
 
 - 「把海报换成青绿色调」→ poster_design 改 colors
 - 「海报背景换成 D:\某图.jpg」（≤4MB）→ background.image 支持本地路径，宿主自动内嵌
-- 「给海报加一个金色 2027 大字层」→ layers 参数增改任意图层
+- 「给海报加一个金色 2027 大字层」→ layers 参数增改任意图层（增量：未提及的层不受影响）
+- 「不要副标题了」「把二维码删掉」→ remove: ["subtitle", "qr1"] 按图层 id 删除；删背景图用 background.image ""
 - 「把海报导出来」→ poster_export 交付最近一次面板导出
 
 ## 目录结构

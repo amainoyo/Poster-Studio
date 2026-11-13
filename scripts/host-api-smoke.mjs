@@ -30,8 +30,17 @@ const fakeCtx = {
   effect(fn) {
     fn();
   },
-  inject() {
-    /* the fs child context is not exercised by this smoke test */
+  inject(deps, cb) {
+    // The routes mount through ctx.inject(['connection','webServer'], child => …).
+    const child = {
+      get: (key) => fakeCtx.get(key),
+      effect: (fn) => fakeCtx.effect(fn),
+      tools: noop,
+      commands: noop,
+    };
+    for (const dep of deps) child[dep] = fakeCtx.get(dep);
+    cb(child);
+    return { dispose() {} };
   },
 };
 

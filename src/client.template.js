@@ -427,6 +427,7 @@ void main(){
         importPreset: 'Import',
         exportPreset: 'Export',
         applyVariant: 'Apply',
+        loadSnapshot: 'Load',
         noExports: 'Nothing exported yet.',
         fullscreen: 'Full screen',
         restore: 'Restore',
@@ -526,6 +527,7 @@ void main(){
         importPreset: '导入',
         exportPreset: '导出',
         applyVariant: '应用',
+        loadSnapshot: '载入',
         noExports: '还没有导出过海报。',
         fullscreen: '全屏',
         restore: '还原',
@@ -3396,7 +3398,7 @@ void main(){
                 })();
               },
               style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
-            }, store.translate('applyVariant'))
+            }, store.translate('loadSnapshot'))
             : null,
           ]))]);
 

@@ -2301,8 +2301,12 @@ void main(){
           }
         };
         void load();
-        return () => { cancelled = true; };
-      }, [library.length]);
+        // Poll: a panel export lands in the host queue without touching this
+        // component's state, so the list would otherwise only refresh on
+        // remount. Entries are sanitised (hasSpec flag), so the poll is cheap.
+        const timer = setInterval(() => { void load(); }, 5000);
+        return () => { cancelled = true; clearInterval(timer); };
+      }, []);
 
       const preset = parseSize(spec.size);
 

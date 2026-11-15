@@ -127,7 +127,24 @@ const del = async (path) => {
   check('DELETE /palettes', gone.status === 200 && gone.body.palettes.length === 0, JSON.stringify(gone.body));
 }
 
-// 4. bad payloads rejected
+// 4. export round trip: png -> spec snapshot -> light list -> fetch snapshot
+{
+  const png = Buffer.from('89504e470d0a1a0a', 'hex');
+  const sent = await fetch(base + '/poster-studio/export', { method: 'POST', headers: { 'content-type': 'image/png' }, body: png });
+  const sentBody = await sent.json().catch(() => null);
+  check('POST /export stores png', sent.status === 200 && typeof (sentBody && sentBody.name) === 'string', String(sent.status));
+  const listed = await get('/poster-studio/exports');
+  const entry = Array.isArray(listed.body) ? listed.body[0] : null;
+  check('GET /exports lists hasSpec without spec payload', listed.status === 200 && Boolean(entry) && entry.hasSpec === true && entry.spec === undefined, JSON.stringify(entry && Object.keys(entry)));
+  const thumb = await fetch(base + `/poster-studio/exports?file=${encodeURIComponent(entry.name)}`);
+  check('GET /exports?file returns image', thumb.status === 200 && thumb.headers.get('content-type') === 'image/png', String(thumb.status));
+  const specRes = await get(`/poster-studio/exports?file=${encodeURIComponent(entry.name)}&spec=1`);
+  check('GET /exports?file&spec=1 returns snapshot', specRes.status === 200 && Boolean(specRes.body.spec) && typeof specRes.body.spec.size === 'string', String(specRes.body && specRes.body.spec && specRes.body.spec.size));
+  const cleared = await del('/poster-studio/exports');
+  check('DELETE /exports', cleared.status === 200, String(cleared.status));
+}
+
+// 5. bad payloads rejected
 {
   const bad = await fetch(base + '/poster-studio/versions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{oops' });
   check('POST /versions invalid json -> 400', bad.status === 400, String(bad.status));

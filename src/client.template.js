@@ -3356,11 +3356,23 @@ void main(){
             style: { width: 52, height: 65, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1, #34343c)', flex: '0 0 auto', display: 'block', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)' },
           }),
           h('span', { key: 'name', style: { flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
-          entry.spec
+          entry.hasSpec
             ? h('button', {
               key: 'apply',
               type: 'button',
-              onClick: () => { store.applySpec(entry.spec); setTab('content'); },
+              onClick: () => {
+                void (async () => {
+                  try {
+                    const response = await fetch(`/poster-studio/exports?file=${encodeURIComponent(entry.name)}&spec=1`);
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (data && data.spec) {
+                      store.applySpec({ ...data.spec, replace: true });
+                      setTab('content');
+                    }
+                  } catch { /* the snapshot could not be read */ }
+                })();
+              },
               style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
             }, store.translate('applyVariant'))
             : null,

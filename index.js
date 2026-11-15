@@ -650,18 +650,12 @@ export function apply(ctx, config = {}) {
         const name = `poster-${Date.now()}.png`;
         const target = join(exportDir, name);
         await writeFile(target, body);
-        const encoded = req.headers['x-poster-spec'];
-        let snapshot;
-        if (typeof encoded === 'string' && encoded.length > 0) {
-          try {
-            snapshot = normalizeSpec(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')), base);
-          } catch {
-            snapshot = undefined;
-          }
-        }
-        if (snapshot) {
-          await writeFile(`${target}.json`, JSON.stringify(snapshot), 'utf8').catch(() => {});
-        }
+        // The exported image always mirrors the panel's current design and the
+        // host holds the same spec (3s sync), so snapshot it directly. A
+        // header-based payload was impossible: specs embed backdrop image data
+        // URLs far past the HTTP header ceiling.
+        const snapshot = normalizeSpec(spec, base);
+        await writeFile(`${target}.json`, JSON.stringify(snapshot), 'utf8').catch(() => {});
         exports.unshift({ name, path: target, bytes: body.length, spec: snapshot });
         exports.length = Math.min(exports.length, 20);
         sendJson(res, 200, { name, path: target, bytes: body.length });
@@ -704,6 +698,17 @@ export function apply(ctx, config = {}) {
             res.end();
             return;
           }
+          const wantSpec = new URL(req.url ?? '', 'http://localhost').searchParams.get('spec') === '1';
+          if (wantSpec) {
+            try {
+              const meta = JSON.parse(await readFile(`${join(exportDir, safe)}.json`, 'utf8'));
+              sendJson(res, 200, { spec: meta });
+            } catch {
+              res.statusCode = 404;
+              res.end();
+            }
+            return;
+          }
           try {
             const data = await readFile(join(exportDir, safe));
             res.statusCode = 200;
@@ -716,7 +721,9 @@ export function apply(ctx, config = {}) {
           }
           return;
         }
-        sendJson(res, 200, exports);
+        // Never ship full specs (image data URLs) in the list — the panel only
+        // needs to know which entries carry a snapshot; fetch one per click.
+        sendJson(res, 200, exports.map(({ spec: snapshotSpec, ...rest }) => ({ ...rest, hasSpec: Boolean(snapshotSpec) })));
       },
     });
 

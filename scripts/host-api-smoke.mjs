@@ -1,6 +1,6 @@
 /* Host-side smoke test for the poster-studio HTTP routes. */
 import http from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -144,7 +144,23 @@ const del = async (path) => {
   check('DELETE /exports', cleared.status === 200, String(cleared.status));
 }
 
-// 5. bad payloads rejected
+// 5. rolling cap deletes the spilled files (png + snapshot)
+{
+  for (let i = 0; i < 21; i += 1) {
+    await fetch(base + '/poster-studio/export', { method: 'POST', headers: { 'content-type': 'image/png' }, body: Buffer.from('89504e470d0a1a0a', 'hex') });
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+  const listed = await get('/poster-studio/exports');
+  const files = readdirSync(join(root, 'exports'));
+  const pngs = files.filter((f) => f.endsWith('.png')).length;
+  check(
+    'exports rolling cap keeps 20 and deletes spilled files',
+    listed.body.length === 20 && pngs === 20 && files.length === 40,
+    `entries=${listed.body.length} pngs=${pngs} files=${files.length}`,
+  );
+}
+
+// 6. bad payloads rejected
 {
   const bad = await fetch(base + '/poster-studio/versions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{oops' });
   check('POST /versions invalid json -> 400', bad.status === 400, String(bad.status));

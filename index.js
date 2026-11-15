@@ -561,6 +561,11 @@ export function apply(ctx, config = {}) {
       const names = await readdir(exportDir);
       const found = [];
       for (const name of names) {
+        // Orphan snapshots without their png never resurface; drop them.
+        if (name.endsWith('.png.json') && !names.includes(name.slice(0, -'.json'.length))) {
+          await rm(join(exportDir, name), { force: true }).catch(() => {});
+          continue;
+        }
         if (!name.endsWith('.png')) continue;
         const path = join(exportDir, name);
         const info = await stat(path);
@@ -574,6 +579,11 @@ export function apply(ctx, config = {}) {
         found.push(entry);
       }      found.sort((left, right) => right.name.localeCompare(left.name));
       exports.push(...found.slice(0, 20));
+      // Anything past the cap is invisible to the panel forever — delete it.
+      for (const stale of found.slice(20)) {
+        await rm(stale.path, { force: true }).catch(() => {});
+        await rm(`${stale.path}.json`, { force: true }).catch(() => {});
+      }
     } catch {
       /* no exports directory yet */
     }
@@ -657,7 +667,12 @@ export function apply(ctx, config = {}) {
         const snapshot = normalizeSpec(spec, base);
         await writeFile(`${target}.json`, JSON.stringify(snapshot), 'utf8').catch(() => {});
         exports.unshift({ name, path: target, bytes: body.length, spec: snapshot });
-        exports.length = Math.min(exports.length, 20);
+        // Rolling out means the entry is invisible forever — remove its files.
+        while (exports.length > 20) {
+          const stale = exports.pop();
+          await rm(stale.path, { force: true }).catch(() => {});
+          await rm(`${stale.path}.json`, { force: true }).catch(() => {});
+        }
         sendJson(res, 200, { name, path: target, bytes: body.length });
       },
     });

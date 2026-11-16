@@ -2130,12 +2130,13 @@ void main(){
       const [mode, setMode] = React.useState('single');
       const [fullscreen, setFullscreen] = React.useState(false);
       const [customSize, setCustomSize] = React.useState(null);
-      // Open with a tidy list: only the headline card expanded. Manual
-      // expansions survive the session; the panel unmounts when closed, so
-      // every open starts from this default again.
-      const [collapsedIds, setCollapsedIds] = React.useState(() => (spec.layers || [])
-        .filter((layer) => layer.id !== 'title')
-        .map((layer) => layer.id));
+      // Expansion defaults to headline-only. Whitelisting by id would miss
+      // layers that arrive with the first host pull (images/QR/badges were
+      // then left expanded), so the default lives in the predicate instead:
+      // every layer is collapsed unless explicitly toggled. Manual toggles
+      // survive the session; the panel unmounts when closed, so every open
+      // starts from the default again.
+      const [collapseOverrides, setCollapseOverrides] = React.useState(() => new Map());
       const [sizeTip, setSizeTip] = React.useState(null);
       const [versionsOpen, setVersionsOpen] = React.useState(false);
       const [status, setStatus] = React.useState('');
@@ -2373,6 +2374,7 @@ void main(){
               { id: `img-${n}`, kind: 'image', src, text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.5, width: 0.25, opacity: 1, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
             ],
           });
+          setCollapseOverrides((current) => new Map(current).set(`img-${n}`, false));
         } catch (error) {
           console.warn('poster-studio: the image could not be added', error);
           setStatus(String(error && error.message ? error.message : error));
@@ -2570,6 +2572,7 @@ void main(){
             { id: `text-${n}`, text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.68, color: '#ffffff', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
           ],
         });
+        setCollapseOverrides((current) => new Map(current).set(`text-${n}`, false));
       };
 
       const removeLayer = (id) => {
@@ -2659,6 +2662,7 @@ void main(){
             { id: `qr-${n}`, kind: 'qr', value: 'https://', text: '', size: 28, weight: 400, align: 'center', x: 0.5, y: 0.5, width: 0.28, opacity: 1, color: '#000000', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
           ],
         });
+        setCollapseOverrides((current) => new Map(current).set(`qr-${n}`, false));
       };
 
       const addBadge = () => {
@@ -2671,11 +2675,11 @@ void main(){
             { id: `badge-${n}`, kind: 'badge', text: '', size: 26, weight: 500, align: 'center', x: 0.5, y: 0.86, width: 0.3, opacity: 1, color: '#ffffff', textColor: '#141414', lineHeight: 1.4, letterSpacing: 0, maxWidth: 0.8 },
           ],
         });
+        setCollapseOverrides((current) => new Map(current).set(`badge-${n}`, false));
       };
 
-      const toggleCollapse = (id) => setCollapsedIds((current) => (current.includes(id)
-        ? current.filter((entry) => entry !== id)
-        : [...current, id]));
+      const isCollapsed = (id) => (collapseOverrides.has(id) ? collapseOverrides.get(id) : id !== 'title');
+      const toggleCollapse = (id) => setCollapseOverrides((current) => new Map(current).set(id, !isCollapsed(id)));
 
       /**
        * The collapsible header shared by every layer card.
@@ -2696,7 +2700,7 @@ void main(){
           h('span', {
             key: 'chev',
             style: { width: 10, fontSize: 8, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
-          }, collapsedIds.includes(layer.id) ? '▶' : '▼'),
+          }, isCollapsed(layer.id) ? '▶' : '▼'),
           layerLabel(layer, index),
         ]),
         h('div', {
@@ -2718,7 +2722,7 @@ void main(){
       ]);
 
       const layerControls = spec.layers.map((layer, index) => {
-        const collapsed = collapsedIds.includes(layer.id);
+        const collapsed = isCollapsed(layer.id);
         if (layer.kind === 'badge') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
             layerHead(layer, index, []),

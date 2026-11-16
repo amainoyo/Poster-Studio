@@ -4,6 +4,20 @@
 
 [简体中文](#简体中文) · [English](#english)
 
+<p align="center">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-1-tech-banner.png" width="860" alt="Poster Studio — 科技横幅 / tech banner">
+</p>
+
+**官方模板库 · Official templates**
+
+<p align="center">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-1-tech-banner.png" height="140" title="科技横幅">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-2-event-poster.png" height="140" title="活动竖版">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-3-gold-festival.png" height="140" title="节庆红金">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-4-minimal-dark.png" height="140" title="极简黑白">
+  <img src="https://github.com/amainoyo/Poster-Studio/releases/download/v1.3.0/release-5-launch-wide.png" height="140" title="发布会横幅">
+</p>
+
 ---
 
 <a id="简体中文"></a>

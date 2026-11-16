@@ -438,6 +438,10 @@ void main(){
         rotate: 'Angle',
         flipH: 'Flip horizontally',
         flipV: 'Flip vertically',
+        gradient: 'Gradient',
+        gradientClear: 'Remove gradient',
+        glow: 'Glow',
+        vertical: 'Vertical text',
         pin: 'Pin',
         unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
@@ -546,6 +550,10 @@ void main(){
         rotate: '旋转',
         flipH: '水平翻转',
         flipV: '垂直翻转',
+        gradient: '渐变',
+        gradientClear: '取消渐变',
+        glow: '辉光',
+        vertical: '竖排文字',
         pin: '钉住（不被淘汰）',
         unpin: '取消钉住',
         noExports: '还没有导出过海报。',
@@ -644,6 +652,9 @@ void main(){
           if (typeof entry.rotate === 'number' && entry.rotate >= -180 && entry.rotate <= 180) layer.rotate = entry.rotate;
           if (typeof entry.flipH === 'boolean') layer.flipH = entry.flipH;
           if (typeof entry.flipV === 'boolean') layer.flipV = entry.flipV;
+          if (typeof entry.color2 === 'string') layer.color2 = entry.color2;
+          if (typeof entry.glow === 'number' && entry.glow >= 0 && entry.glow <= 1) layer.glow = entry.glow;
+          if (typeof entry.vertical === 'boolean') layer.vertical = entry.vertical;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
           if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr' || entry.kind === 'badge') layer.kind = entry.kind;
           if (typeof entry.src === 'string' && (entry.src.length === 0 || entry.src.startsWith('data:image/'))) layer.src = entry.src;
@@ -1111,6 +1122,25 @@ void main(){
       return { x: cx - grownW / 2, y: cy - grownH / 2, width: grownW, height: grownH };
     }
 
+    /**
+     * Resolve a text layer's fill: a vertical gradient when color2 is set,
+     * otherwise the flat color.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the layer.
+     * @param {number} yTop - gradient start (pixels).
+     * @param {number} yBottom - gradient end (pixels).
+     * @returns {string | CanvasGradient} the canvas fill style.
+     */
+    function layerFill(ctx, layer, yTop, yBottom) {
+      const c2 = normalizeColor(layer.color2);
+      if (!c2) return layer.color;
+      const c1 = normalizeColor(layer.color) || '#ffffff';
+      const gradient = ctx.createLinearGradient(0, yTop, 0, yBottom);
+      gradient.addColorStop(0, c1);
+      gradient.addColorStop(1, c2);
+      return gradient;
+    }
+
     function drawLayer(ctx, layer, lines, width, height) {
       const lineHeight = layer.size * layer.lineHeight;
       const blockHeight = lines.length * lineHeight;
@@ -1120,6 +1150,7 @@ void main(){
       let maxX = Number.NEGATIVE_INFINITY;
       const outline = Math.max(0, Number(layer.outline) || 0);
       const shadow = Math.max(0, Number(layer.shadow) || 0);
+      const glow = Math.max(0, Number(layer.glow) || 0);
       ctx.save();
       applyLayerTransform(ctx, layer, width, height);
       ctx.textBaseline = 'alphabetic';
@@ -1131,6 +1162,16 @@ void main(){
         ctx.shadowBlur = layer.size * 0.22 * Math.sqrt(shadow);
         ctx.shadowOffsetY = layer.size * 0.05;
       }
+      if (glow > 0) {
+        // Coloured bloom: reuse the text colour so the glow reads as light
+        // emitted by the glyphs rather than a coloured drop shadow.
+        const tint = normalizeColor(layer.color) || '#ffffff';
+        ctx.shadowColor = tint + (tint.length === 7 ? 'cc' : '');
+        ctx.shadowBlur = layer.size * 0.38 * Math.sqrt(glow);
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+      const fill = layerFill(ctx, layer, top, top + blockHeight);
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing}px`;
       for (const line of lines) {
         const lineWidth = measureLine(ctx, layer, line);
@@ -1149,7 +1190,7 @@ void main(){
             ctx.textAlign = 'left';
             ctx.strokeText(text, x, baseline);
           }
-          ctx.fillStyle = layer.color;
+          ctx.fillStyle = fill;
           ctx.textAlign = 'left';
           ctx.fillText(text, x, baseline);
           x += ctx.measureText(text).width;
@@ -1159,7 +1200,7 @@ void main(){
           ctx.shadowColor = 'transparent';
           ctx.shadowBlur = 0;
           ctx.shadowOffsetY = 0;
-          ctx.fillStyle = layer.color;
+          ctx.fillStyle = fill;
           ctx.fillRect(lineStart, baseline + layer.size * 0.14, x - lineStart, Math.max(1, layer.size * 0.06));
           ctx.restore();
         }
@@ -1177,6 +1218,72 @@ void main(){
         width: Math.max(0, right - left),
         height: Math.max(0, bottom - top),
       };
+    }
+
+    /**
+     * Draw a layer in vertical (top-to-bottom, right-to-left) writing mode.
+     * Each newline-separated line becomes one column, ordered right-to-left.
+     * Latin runs are stacked glyph by glyph (upright), suiting short accents.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the text layer.
+     * @param {string} text - the raw text.
+     * @param {number} width - canvas width.
+     * @param {number} height - canvas height.
+     * @returns {{ x: number, y: number, width: number, height: number }} the layout bounds.
+     */
+    function drawVerticalLayer(ctx, layer, text, width, height) {
+      const columns = String(text).split('\n').filter((column) => column.length > 0);
+      if (columns.length === 0) return null;
+      const charStep = layer.size * Math.max(1.0, layer.lineHeight);
+      const columnStep = layer.size * (1 + (Math.max(0, Number(layer.letterSpacing) || 0) / layer.size));
+      const blockWidth = (columns.length - 1) * columnStep + layer.size;
+      const rightEdge = layer.x * width + blockWidth / 2;
+      const longest = Math.max(...columns.map((column) => Array.from(column).length));
+      const blockHeight = longest * charStep;
+      const top = layer.y * height - blockHeight / 2;
+      const glow = Math.max(0, Number(layer.glow) || 0);
+      const shadow = Math.max(0, Number(layer.shadow) || 0);
+      const outline = Math.max(0, Number(layer.outline) || 0);
+      ctx.save();
+      applyLayerTransform(ctx, layer, width, height);
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'center';
+      if (shadow > 0) {
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = layer.size * 0.22 * Math.sqrt(shadow);
+        ctx.shadowOffsetY = layer.size * 0.05;
+      }
+      if (glow > 0) {
+        const tint = normalizeColor(layer.color) || '#ffffff';
+        ctx.shadowColor = tint + (tint.length === 7 ? 'cc' : '');
+        ctx.shadowBlur = layer.size * 0.38 * Math.sqrt(glow);
+      }
+      const fill = layerFill(ctx, layer, top, top + blockHeight);
+      let minX = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      columns.forEach((column, index) => {
+        const cx = rightEdge - index * columnStep - layer.size / 2;
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        let y = top + layer.size * 0.78;
+        Array.from(column).forEach((glyph) => {
+          const latin = /[A-Za-z0-9]/.test(glyph);
+          ctx.font = fontFor(layer, latin);
+          if (outline > 0) {
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = layer.outlineColor || '#000000';
+            ctx.lineWidth = Math.sqrt(outline) * layer.size * 0.1;
+            ctx.strokeText(glyph, cx, y);
+          }
+          ctx.fillStyle = fill;
+          ctx.fillText(glyph, cx, y);
+          y += charStep;
+        });
+      });
+      ctx.restore();
+      const left = Number.isFinite(minX) ? minX - layer.size / 2 : 0;
+      const right = Number.isFinite(maxX) ? maxX + layer.size / 2 : left;
+      return { x: left, y: top, width: Math.max(0, right - left), height: blockHeight };
     }
 
     /** Decoded images shared across renderers, keyed by data URL. */
@@ -1350,6 +1457,11 @@ void main(){
           continue;
         }
         if (!layer.text) continue;
+        if (layer.vertical) {
+          const bounds = drawVerticalLayer(ctx, layer, layer.text, width, height);
+          if (bounds) layout.push({ id: layer.id, ...bounds });
+          continue;
+        }
         const lines = wrapLines(ctx, layer, width);
         const bounds = drawLayer(ctx, layer, lines, width, height);
         layout.push({ id: layer.id, ...layoutRect(bounds, layer) });
@@ -3208,6 +3320,48 @@ void main(){
             precision: 0,
             onChange: (value) => patchLayer(layer.id, { shadow: value }),
           }),
+        ]),
+        h('div', { key: 'rowTfx', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+          h('label', {
+            key: 'gradWrap',
+            style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' },
+          }, [
+            h('span', { key: 'label' }, store.translate('gradient')),
+            h('input', {
+              key: 'color2',
+              type: 'color',
+              value: normalizeColor(layer.color2) || layer.color.slice(0, 7),
+              title: store.translate('gradient'),
+              onChange: (event) => patchLayer(layer.id, { color2: event.target.value }),
+              style: { width: 26, height: 24, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
+            }),
+            layer.color2 ? h('button', {
+              key: 'gradClear',
+              type: 'button',
+              title: store.translate('gradientClear'),
+              onClick: () => patchLayer(layer.id, { color2: '' }),
+              style: { padding: '0 4px', border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
+            }, '✕') : null,
+          ]),
+          h(Stepper, {
+            key: 'glow',
+            label: store.translate('glow'),
+            stretch: true,
+            value: layer.glow ?? 0,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => patchLayer(layer.id, { glow: value }),
+          }),
+          h('button', {
+            key: 'vertical',
+            type: 'button',
+            title: store.translate('vertical'),
+            onClick: () => patchLayer(layer.id, { vertical: !layer.vertical }),
+            style: { ...layerToggleStyle(Boolean(layer.vertical)), writingMode: 'vertical-rl', lineHeight: '18px' },
+          }, '竖'),
         ]),
         transformRow(layer),
         h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [

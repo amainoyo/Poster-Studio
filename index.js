@@ -218,6 +218,11 @@ function normalizeLayer(value, fallback) {
     rotate: clamp(source.rotate, -180, 180, Number(fallback.rotate) || 0),
     flipH: typeof source.flipH === 'boolean' ? source.flipH : Boolean(fallback.flipH),
     flipV: typeof source.flipV === 'boolean' ? source.flipV : Boolean(fallback.flipV),
+    color2: typeof source.color2 === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(source.color2)
+      ? source.color2.toLowerCase()
+      : (typeof fallback.color2 === 'string' ? fallback.color2 : ''),
+    glow: clamp(source.glow, 0, 1, Number(fallback.glow) || 0),
+    vertical: typeof source.vertical === 'boolean' ? source.vertical : Boolean(fallback.vertical),
     maxWidth: clamp(source.maxWidth, 0.2, 1, fallback.maxWidth),
     kind: source.kind === 'image' || source.kind === 'qr' || source.kind === 'badge'
       ? source.kind
@@ -1099,6 +1104,9 @@ export function apply(ctx, config = {}) {
               rotate: { type: 'number', required: false, description: 'Rotation in degrees around the layer anchor, -180 to 180.' },
               flipH: { type: 'boolean', required: false, description: 'Mirror the layer horizontally.' },
               flipV: { type: 'boolean', required: false, description: 'Mirror the layer vertically.' },
+              color2: { type: 'string', required: false, description: 'Gradient end colour #rrggbb; when set the text fills top-to-bottom from colour to this.' },
+              glow: { type: 'number', required: false, description: 'Coloured bloom strength, 0 to 1 (text emits light in its own colour).' },
+              vertical: { type: 'boolean', required: false, description: 'Vertical writing mode: top-to-bottom columns, right-to-left.' },
               maxWidth: { type: 'number', required: false, description: 'Text wrap width as a fraction of the canvas.' },
               width: { type: 'number', required: false, description: 'Image layer width as a fraction of the canvas.' },
               opacity: { type: 'number', required: false, description: 'Layer opacity, 0 to 1.' },
@@ -1153,6 +1161,9 @@ export function apply(ctx, config = {}) {
                   rotate: { type: 'number', description: 'Rotation in degrees, -180 to 180.' },
                   flipH: { type: 'boolean' },
                   flipV: { type: 'boolean' },
+                  color2: { type: 'string', description: 'Gradient end colour #rrggbb.' },
+                  glow: { type: 'number', description: 'Coloured bloom strength, 0 to 1.' },
+                  vertical: { type: 'boolean' },
                   maxWidth: { type: 'number' },
                   kind: { type: 'string', enum: ['text', 'image', 'qr', 'badge'] },
                   value: { type: 'string' },

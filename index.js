@@ -1239,6 +1239,7 @@ export function apply(ctx, config = {}) {
                 opacity: { type: 'number' },
               },
             },
+            sizeOverrides: { type: 'object' },
           },
         },
         render: (_args, value) => {

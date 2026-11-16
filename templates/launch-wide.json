@@ -1,0 +1,12 @@
+{
+  "name": "发布会横幅",
+  "size": "1920x1080",
+  "colors": { "c1": "#160705", "c2": "#33110a", "c3": "#d1531f", "c4": "#ffc16f", "c5": "#1a0a06" },
+  "shader": { "scale": 1, "grain": 0.014, "bloom": 0.8, "lightCore": 0.9, "speed": 1.2 },
+  "layers": [
+    { "id": "badge1", "kind": "badge", "text": "NEW", "size": 24, "weight": 800, "align": "center", "x": 0.5, "y": 0.26, "width": 0.3, "opacity": 1, "color": "#ffc16f", "textColor": "#1a0a05", "lineHeight": 1.4, "letterSpacing": 4, "maxWidth": 0.8 },
+    { "id": "title", "text": "产品主标题", "size": 150, "weight": 800, "align": "center", "x": 0.5, "y": 0.48, "color": "#ffffff", "lineHeight": 1.1, "letterSpacing": 4, "maxWidth": 0.88 },
+    { "id": "subtitle", "text": "一句有力的产品定位语", "size": 40, "weight": 400, "align": "center", "x": 0.5, "y": 0.63, "color": "#ffd9b0cc", "lineHeight": 1.5, "letterSpacing": 2, "maxWidth": 0.72 },
+    { "id": "footer", "text": "发布会 · 2026.11", "size": 24, "weight": 400, "align": "center", "x": 0.5, "y": 0.86, "color": "#ffffff77", "lineHeight": 1.4, "letterSpacing": 0, "maxWidth": 0.8 }
+  ]
+}

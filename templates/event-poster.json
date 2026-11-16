@@ -1,0 +1,12 @@
+{
+  "name": "活动竖版",
+  "size": "1080x1920",
+  "colors": { "c1": "#140518", "c2": "#2b0a33", "c3": "#8e2bbf", "c4": "#ff6fd8", "c5": "#180720" },
+  "shader": { "scale": 0.9, "grain": 0.016, "bloom": 0.7, "lightCore": 0.8, "lightHalo": 0.6 },
+  "layers": [
+    { "id": "badge1", "kind": "badge", "text": "立即报名", "size": 26, "weight": 700, "align": "center", "x": 0.5, "y": 0.14, "width": 0.3, "opacity": 1, "color": "#ff6fd8", "textColor": "#14051a", "lineHeight": 1.4, "letterSpacing": 2, "maxWidth": 0.8 },
+    { "id": "title", "text": "活动主标题", "size": 120, "weight": 800, "align": "center", "x": 0.5, "y": 0.34, "color": "#ffffff", "lineHeight": 1.15, "letterSpacing": 4, "maxWidth": 0.84 },
+    { "id": "subtitle", "text": "时间 · 地点 · 主办方", "size": 34, "weight": 400, "align": "center", "x": 0.5, "y": 0.47, "color": "#f3d0ffcc", "lineHeight": 1.6, "letterSpacing": 2, "maxWidth": 0.8 },
+    { "id": "footer", "text": "扫码或搜索参与活动", "size": 26, "weight": 400, "align": "center", "x": 0.5, "y": 0.88, "color": "#ffffff88", "lineHeight": 1.4, "letterSpacing": 0, "maxWidth": 0.8 }
+  ]
+}

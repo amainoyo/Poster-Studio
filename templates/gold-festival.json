@@ -1,0 +1,11 @@
+{
+  "name": "节庆红金",
+  "size": "1080x1080",
+  "colors": { "c1": "#1c0505", "c2": "#4a0d0d", "c3": "#b3241f", "c4": "#ffd27a", "c5": "#250707" },
+  "shader": { "scale": 1.4, "grain": 0.02, "bloom": 0.65, "lightCore": 0.7 },
+  "layers": [
+    { "id": "title", "text": "节日主标题", "size": 128, "weight": 800, "align": "center", "x": 0.5, "y": 0.44, "color": "#ffe8b0", "lineHeight": 1.2, "letterSpacing": 6, "maxWidth": 0.86 },
+    { "id": "subtitle", "text": "一句祝福或主题语", "size": 36, "weight": 400, "align": "center", "x": 0.5, "y": 0.59, "color": "#ffffffc9", "lineHeight": 1.6, "letterSpacing": 4, "maxWidth": 0.8 },
+    { "id": "footer", "text": "—— 署名 ——", "size": 24, "weight": 400, "align": "center", "x": 0.5, "y": 0.82, "color": "#ffffff70", "lineHeight": 1.4, "letterSpacing": 2, "maxWidth": 0.8 }
+  ]
+}

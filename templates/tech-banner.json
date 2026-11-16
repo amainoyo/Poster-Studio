@@ -1,0 +1,11 @@
+{
+  "name": "科技横幅",
+  "size": "1200x628",
+  "colors": { "c1": "#050a16", "c2": "#0b1a33", "c3": "#1f5fbf", "c4": "#6fd0ff", "c5": "#071120" },
+  "shader": { "scale": 1.2, "grain": 0.012, "bloom": 0.6 },
+  "layers": [
+    { "id": "title", "text": "在此输入标题", "size": 88, "weight": 700, "align": "center", "x": 0.5, "y": 0.4, "color": "#ffffff", "lineHeight": 1.15, "letterSpacing": 2, "maxWidth": 0.86 },
+    { "id": "subtitle", "text": "一行说清楚它是什么", "size": 30, "weight": 400, "align": "center", "x": 0.5, "y": 0.57, "color": "#bcd6f5cc", "lineHeight": 1.5, "letterSpacing": 1, "maxWidth": 0.72 },
+    { "id": "footer", "text": "署名 · 2026", "size": 22, "weight": 400, "align": "center", "x": 0.5, "y": 0.9, "color": "#ffffff77", "lineHeight": 1.4, "letterSpacing": 0, "maxWidth": 0.8 }
+  ]
+}

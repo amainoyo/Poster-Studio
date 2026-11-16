@@ -38,6 +38,7 @@ const template = fs.readFileSync(TEMPLATE, 'utf8');
 if (!template.includes('__FONT_FACE_CSS__')) throw new Error('template placeholder missing');
 if (!template.includes('__QRCODE_LIB__')) throw new Error('qrcode placeholder missing');
 if (!template.includes('__FALLBACK_PRESET__')) throw new Error('preset placeholder missing');
+if (!template.includes('__TEMPLATES__')) throw new Error('templates placeholder missing');
 
 // Fallback designs: the panel shows the first preset while the Host route is
 // unreachable, so the studio never falls back to the bare placeholder copy.
@@ -51,6 +52,17 @@ const presets = fs.existsSync(PRESET_DIR)
 const presetJson = JSON.stringify(presets);
 if (presetJson.includes('`') || presetJson.includes('${')) throw new Error('preset JSON would break the template literal');
 
+// Bundled template gallery: one-click starter designs in the library tab.
+const TEMPLATE_DIR = path.join(ROOT, 'templates');
+const templates = fs.existsSync(TEMPLATE_DIR)
+  ? fs.readdirSync(TEMPLATE_DIR)
+    .filter((name) => name.endsWith('.json'))
+    .sort()
+    .map((name) => JSON.parse(fs.readFileSync(path.join(TEMPLATE_DIR, name), 'utf8')))
+  : [];
+const templatesJson = JSON.stringify(templates);
+if (templatesJson.includes('`') || templatesJson.includes('${')) throw new Error('template JSON would break the template literal');
+
 // Vendored React pair (UMD builds): the plugin mounts its own trees to stay
 // immune to host/module React copy drift (React #321).
 const reactUmd = fs.readFileSync(path.join(ROOT, 'node_modules', 'react', 'umd', 'react.production.min.js'), 'utf8');
@@ -60,6 +72,7 @@ const output = template
   .replace('__FONT_FACE_CSS__', '`' + css + '`')
   .replace('__QRCODE_LIB__', () => qrcodeExpr)
   .replace('__FALLBACK_PRESET__', () => presetJson)
+  .replace('__TEMPLATES__', () => templatesJson)
   .replace('__REACT_UMD__', () => reactUmd)
   .replace('__REACT_DOM_UMD__', () => reactDomUmd);
 fs.writeFileSync(OUTPUT, output, 'utf8');

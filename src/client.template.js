@@ -44,6 +44,10 @@ window.__ModuleLoader__.load({
 
     const LATIN_STACK = '"PosterGrotesk", ' + FONT_STACK;
 
+    // Bundled starter designs (build.cjs injects templates/*.json) shown in
+    // the library tab as one-click galleries.
+    const TEMPLATES = __TEMPLATES__;
+
     // Online font extensions, lazy-loaded through the Google Fonts mirror
     // (fonts.loli.net); the offline fallback chain is the built-in stack.
     const FONT_OPTIONS = {
@@ -430,6 +434,7 @@ void main(){
         exportPreset: 'Export',
         applyVariant: 'Apply',
         loadSnapshot: 'Load',
+        templates: 'Templates',
         pin: 'Pin',
         unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
@@ -534,6 +539,7 @@ void main(){
         exportPreset: '导出',
         applyVariant: '应用',
         loadSnapshot: '载入',
+        templates: '模板',
         pin: '钉住（不被淘汰）',
         unpin: '取消钉住',
         noExports: '还没有导出过海报。',
@@ -2134,7 +2140,15 @@ void main(){
     function PosterPanelInner(props) {
       const embedded = Boolean(props && props.embedded);
       const [spec, setSpec] = React.useState(store.spec);
-      const [tab, setTab] = React.useState('content');
+      const [tab, setTab] = React.useState(() => {
+        try {
+          const saved = window.localStorage.getItem('poster-studio.tab');
+          return saved && ['content', 'palette', 'backdrop', 'variants', 'library'].includes(saved) ? saved : 'content';
+        } catch { return 'content'; }
+      });
+      React.useEffect(() => {
+        try { window.localStorage.setItem('poster-studio.tab', tab); } catch { /* private mode */ }
+      }, [tab]);
       const [mode, setMode] = React.useState('single');
       const [fullscreen, setFullscreen] = React.useState(false);
       const [customSize, setCustomSize] = React.useState(null);
@@ -3450,16 +3464,35 @@ void main(){
         }
       };
 
-      const libraryView = library.length === 0
-        ? h('div', { key: 'pane-library-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('noExports'))
-        : h('div', { key: 'pane-library', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
-          h('button', {
-            key: 'clear',
-            type: 'button',
-            onClick: () => { void clearLibrary(); },
-            style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', fontFamily: FONT_STACK },
-          }, store.translate('clearLibrary')),
-          ...library.map((entry) => h('div', {
+      const templatesPane = h('div', { key: 'templates', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
+        h('div', { key: 'templates-label', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('templates')),
+        ...TEMPLATES.map((tpl) => h('button', {
+          key: tpl.name,
+          type: 'button',
+          title: `${tpl.name} · ${tpl.size}`,
+          onClick: () => {
+            store.applySpec({ ...tpl, replace: true });
+            setTab('content');
+          },
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: FONT_STACK },
+        }, [
+          h('span', { key: 'swatch', style: { width: 34, height: 34, borderRadius: 6, flex: '0 0 auto', background: `linear-gradient(135deg, ${tpl.colors.c1}, ${tpl.colors.c3} 55%, ${tpl.colors.c4})` } }),
+          h('span', { key: 'tname', style: { flex: '1 1 0', fontSize: 12, color: 'var(--dsw-alias-label-primary, #e8e8ee)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, tpl.name),
+          h('span', { key: 'tsize', style: { fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' } }, tpl.size),
+        ])),
+      ]);
+      const libraryView = h('div', { key: 'pane-library', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
+        templatesPane,
+        ...(library.length === 0
+          ? [h('div', { key: 'pane-library-empty', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, store.translate('noExports'))]
+          : [
+            h('button', {
+              key: 'clear',
+              type: 'button',
+              onClick: () => { void clearLibrary(); },
+              style: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', fontFamily: FONT_STACK },
+            }, store.translate('clearLibrary')),
+            ...library.map((entry) => h('div', {
           key: `${entry.name}-${library.indexOf(entry)}`,
           style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' },
         }, [
@@ -3506,7 +3539,8 @@ void main(){
               style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 11, cursor: 'pointer' },
             }, store.translate('loadSnapshot'))
             : null,
-          ]))]);
+            ]))]),
+        ]);
 
       const tabs = [
         { id: 'content', label: store.translate('content') },

@@ -6,7 +6,7 @@
  * change made in either place is the same change.
  */
 
-import { mkdir, readFile, writeFile, readdir, rm, stat } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile, readdir, rm, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -571,10 +571,20 @@ export function apply(ctx, config = {}) {
           await rm(join(exportDir, name), { force: true }).catch(() => {});
           continue;
         }
+        if (name.endsWith('.png.pinned') && !names.includes(name.slice(0, -'.pinned'.length))) {
+          await rm(join(exportDir, name), { force: true }).catch(() => {});
+          continue;
+        }
         if (!name.endsWith('.png')) continue;
         const path = join(exportDir, name);
         const info = await stat(path);
         const entry = { name, path, bytes: info.size };
+        try {
+          await access(`${path}.pinned`);
+          entry.pinned = true;
+        } catch {
+          /* not pinned */
+        }
         try {
           const meta = JSON.parse(await readFile(`${path}.json`, 'utf8'));
           entry.spec = normalizeSpec(meta, base);
@@ -583,9 +593,11 @@ export function apply(ctx, config = {}) {
         }
         found.push(entry);
       }      found.sort((left, right) => right.name.localeCompare(left.name));
-      exports.push(...found.slice(0, 20));
-      // Anything past the cap is invisible to the panel forever — delete it.
-      for (const stale of found.slice(20)) {
+      // Pinned entries are exempt from the cap; unpinned ones spill past 20.
+      const unpinned = found.filter((entry) => !entry.pinned);
+      const kept = new Set([...found.filter((entry) => entry.pinned), ...unpinned.slice(0, 20)]);
+      exports.push(...found.filter((entry) => kept.has(entry)));
+      for (const stale of found.filter((entry) => !kept.has(entry))) {
         await rm(stale.path, { force: true }).catch(() => {});
         await rm(`${stale.path}.json`, { force: true }).catch(() => {});
       }
@@ -674,9 +686,16 @@ export function apply(ctx, config = {}) {
         exports.unshift({ name, path: target, bytes: body.length, spec: snapshot });
         // Rolling out means the entry is invisible forever — remove its files.
         while (exports.length > 20) {
-          const stale = exports.pop();
+          // Pinned entries are exempt: evict the oldest unpinned one instead.
+          let index = -1;
+          for (let i = exports.length - 1; i >= 0; i -= 1) {
+            if (!exports[i].pinned) { index = i; break; }
+          }
+          if (index === -1) break;
+          const [stale] = exports.splice(index, 1);
           await rm(stale.path, { force: true }).catch(() => {});
           await rm(`${stale.path}.json`, { force: true }).catch(() => {});
+          await rm(`${stale.path}.pinned`, { force: true }).catch(() => {});
         }
         sendJson(res, 200, { name, path: target, bytes: body.length });
       },
@@ -698,15 +717,33 @@ export function apply(ctx, config = {}) {
           try {
             const found = await readdir(exportDir);
             for (const file of found) {
-              if (file.endsWith('.png') || file.endsWith('.png.json')) await rm(join(exportDir, file), { force: true });
+              if (file.endsWith('.png') || file.endsWith('.png.json') || file.endsWith('.png.pinned')) await rm(join(exportDir, file), { force: true });
             }
           } catch { /* the directory may not exist yet */ }
           sendJson(res, 200, { cleared });
           return;
         }
+        if (req.method === 'PUT') {
+          // Toggle the pin on one entry: /exports?file=x.png (empty body).
+          const query = new URL(req.url ?? '', 'http://localhost').searchParams.get('file');
+          const safe = String(query ?? '').replace(/[^A-Za-z0-9._-]/g, '');
+          const entry = exports.find((item) => item.name === safe);
+          if (!entry) {
+            res.statusCode = 404;
+            res.end();
+            return;
+          }
+          entry.pinned = !entry.pinned;
+          try {
+            if (entry.pinned) await writeFile(`${entry.path}.pinned`, '');
+            else await rm(`${entry.path}.pinned`, { force: true });
+          } catch { /* marker best effort; the runtime flag still holds */ }
+          sendJson(res, 200, { name: entry.name, pinned: entry.pinned });
+          return;
+        }
         if (req.method !== 'GET') {
           res.statusCode = 405;
-          res.setHeader('allow', 'GET, DELETE');
+          res.setHeader('allow', 'GET, PUT, DELETE');
           res.end();
           return;
         }

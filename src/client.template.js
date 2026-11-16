@@ -430,6 +430,8 @@ void main(){
         exportPreset: 'Export',
         applyVariant: 'Apply',
         loadSnapshot: 'Load',
+        pin: 'Pin',
+        unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
         fullscreen: 'Full screen',
         restore: 'Restore',
@@ -532,6 +534,8 @@ void main(){
         exportPreset: '导出',
         applyVariant: '应用',
         loadSnapshot: '载入',
+        pin: '钉住（不被淘汰）',
+        unpin: '取消钉住',
         noExports: '还没有导出过海报。',
         fullscreen: '全屏',
         restore: '还原',
@@ -3466,6 +3470,22 @@ void main(){
             style: { width: 52, height: 65, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--dsw-alias-border-l1, #34343c)', flex: '0 0 auto', display: 'block', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)' },
           }),
           h('span', { key: 'name', style: { flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.name),
+          h('button', {
+            key: 'pin',
+            type: 'button',
+            title: store.translate(entry.pinned ? 'unpin' : 'pin'),
+            onClick: () => {
+              void (async () => {
+                try {
+                  const response = await fetch(`/poster-studio/exports?file=${encodeURIComponent(entry.name)}`, { method: 'PUT' });
+                  if (!response.ok) return;
+                  const data = await response.json();
+                  setLibrary((current) => current.map((item) => (item.name === entry.name ? { ...item, pinned: data.pinned } : item)));
+                } catch { /* the toggle failed; the next poll refreshes */ }
+              })();
+            },
+            style: { padding: '2px 6px', borderRadius: 6, border: 'none', background: entry.pinned ? 'var(--dsw-alias-bg-layer-1, #1f1f25)' : 'transparent', fontSize: 12, cursor: 'pointer', opacity: entry.pinned ? 1 : 0.38, flex: '0 0 auto' },
+          }, '📌'),
           entry.hasSpec
             ? h('button', {
               key: 'apply',

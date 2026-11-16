@@ -160,6 +160,27 @@ const del = async (path) => {
   );
 }
 
+// 5b. pin exempts an entry from the rolling eviction
+{
+  const listed = await get('/poster-studio/exports');
+  const oldest = listed.body[listed.body.length - 1];
+  const pin = await fetch(base + `/poster-studio/exports?file=${encodeURIComponent(oldest.name)}`, { method: 'PUT' });
+  const pinBody = await pin.json().catch(() => null);
+  check('PUT /exports pin toggles', pin.status === 200 && pinBody && pinBody.pinned === true, String(pin.status));
+  for (let i = 0; i < 5; i += 1) {
+    await fetch(base + '/poster-studio/export', { method: 'POST', headers: { 'content-type': 'image/png' }, body: Buffer.from('89504e470d0a1a0a', 'hex') });
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+  const after = await get('/poster-studio/exports');
+  const stillThere = after.body.some((entry) => entry.name === oldest.name);
+  const pinned = after.body.filter((entry) => entry.pinned).length;
+  check(
+    'pinned entry survives eviction (cap counts unpinned)',
+    stillThere && pinned === 1 && after.body.length === 21,
+    `len=${after.body.length} pinned=${pinned}`,
+  );
+}
+
 // 6. bad payloads rejected
 {
   const bad = await fetch(base + '/poster-studio/versions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{oops' });

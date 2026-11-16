@@ -435,6 +435,9 @@ void main(){
         applyVariant: 'Apply',
         loadSnapshot: 'Load',
         templates: 'Templates',
+        rotate: 'Angle',
+        flipH: 'Flip horizontally',
+        flipV: 'Flip vertically',
         pin: 'Pin',
         unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
@@ -540,6 +543,9 @@ void main(){
         applyVariant: '应用',
         loadSnapshot: '载入',
         templates: '模板',
+        rotate: '旋转',
+        flipH: '水平翻转',
+        flipV: '垂直翻转',
         pin: '钉住（不被淘汰）',
         unpin: '取消钉住',
         noExports: '还没有导出过海报。',
@@ -635,6 +641,9 @@ void main(){
           if (color !== undefined) layer.color = color;
           if (typeof entry.lineHeight === 'number' && entry.lineHeight >= 0.8 && entry.lineHeight <= 3) layer.lineHeight = entry.lineHeight;
           if (typeof entry.letterSpacing === 'number' && entry.letterSpacing >= -10 && entry.letterSpacing <= 40) layer.letterSpacing = entry.letterSpacing;
+          if (typeof entry.rotate === 'number' && entry.rotate >= -180 && entry.rotate <= 180) layer.rotate = entry.rotate;
+          if (typeof entry.flipH === 'boolean') layer.flipH = entry.flipH;
+          if (typeof entry.flipV === 'boolean') layer.flipV = entry.flipV;
           if (typeof entry.maxWidth === 'number' && entry.maxWidth >= 0.2 && entry.maxWidth <= 1) layer.maxWidth = entry.maxWidth;
           if (entry.kind === 'text' || entry.kind === 'image' || entry.kind === 'qr' || entry.kind === 'badge') layer.kind = entry.kind;
           if (typeof entry.src === 'string' && (entry.src.length === 0 || entry.src.startsWith('data:image/'))) layer.src = entry.src;
@@ -1062,6 +1071,46 @@ void main(){
      * @param {number} height - the canvas height.
      * @returns {{ x: number, y: number, width: number, height: number }} the drawn bounds.
      */
+    /**
+     * Apply a layer's rotation/flip around its anchor centre. Call inside a
+     * ctx.save/restore block; no-op when the layer carries no transform.
+     * @param {CanvasRenderingContext2D} ctx - the drawing context.
+     * @param {Record<string, any>} layer - the layer.
+     * @param {number} width - canvas width in pixels.
+     * @param {number} height - canvas height in pixels.
+     */
+    function applyLayerTransform(ctx, layer, width, height) {
+      const rotate = Number(layer.rotate) || 0;
+      const scaleX = layer.flipH ? -1 : 1;
+      const scaleY = layer.flipV ? -1 : 1;
+      if (!rotate && scaleX === 1 && scaleY === 1) return;
+      const cx = layer.x * width;
+      const cy = layer.y * height;
+      ctx.translate(cx, cy);
+      if (rotate) ctx.rotate((rotate * Math.PI) / 180);
+      if (scaleX !== 1 || scaleY !== 1) ctx.scale(scaleX, scaleY);
+      ctx.translate(-cx, -cy);
+    }
+
+    /**
+     * Axis-aligned bounding box of a rotated rectangle (selection handles).
+     * @param {{ x: number, y: number, width: number, height: number }} rect - the plain rect.
+     * @param {Record<string, any>} layer - the layer carrying rotate.
+     * @returns {{ x: number, y: number, width: number, height: number }} the grown rect.
+     */
+    function layoutRect(rect, layer) {
+      const rotate = Number(layer.rotate) || 0;
+      if (!rotate) return rect;
+      const rad = (rotate * Math.PI) / 180;
+      const cx = rect.x + rect.width / 2;
+      const cy = rect.y + rect.height / 2;
+      const cos = Math.abs(Math.cos(rad));
+      const sin = Math.abs(Math.sin(rad));
+      const grownW = rect.width * cos + rect.height * sin;
+      const grownH = rect.width * sin + rect.height * cos;
+      return { x: cx - grownW / 2, y: cy - grownH / 2, width: grownW, height: grownH };
+    }
+
     function drawLayer(ctx, layer, lines, width, height) {
       const lineHeight = layer.size * layer.lineHeight;
       const blockHeight = lines.length * lineHeight;
@@ -1072,6 +1121,7 @@ void main(){
       const outline = Math.max(0, Number(layer.outline) || 0);
       const shadow = Math.max(0, Number(layer.shadow) || 0);
       ctx.save();
+      applyLayerTransform(ctx, layer, width, height);
       ctx.textBaseline = 'alphabetic';
       if (shadow > 0) {
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
@@ -1239,10 +1289,11 @@ void main(){
           const left = layer.x * width - drawWidth / 2;
           const top = layer.y * height - drawHeight / 2;
           ctx.save();
+          applyLayerTransform(ctx, layer, width, height);
           ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
           ctx.drawImage(image, left, top, drawWidth, drawHeight);
           ctx.restore();
-          layout.push({ id: layer.id, x: left, y: top, width: drawWidth, height: drawHeight });
+          layout.push({ id: layer.id, ...layoutRect({ x: left, y: top, width: drawWidth, height: drawHeight }, layer) });
           continue;
         }
         if (layer.kind === 'badge') {
@@ -1250,6 +1301,7 @@ void main(){
           // save first so letterSpacing (which feeds the width measurement)
           // never leaks into the next layer's state.
           ctx.save();
+          applyLayerTransform(ctx, layer, width, height);
           if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing ?? 0}px`;
           const padding = layer.size * 0.62;
           const badgeWidth = Math.max(layer.size, measureLine(ctx, layer, layer.text)) + padding * 2;
@@ -1267,7 +1319,7 @@ void main(){
           ctx.textBaseline = 'middle';
           ctx.fillText(layer.text, layer.x * width, badgeTop + badgeHeight / 2 + layer.size * 0.06);
           ctx.restore();
-          layout.push({ id: layer.id, x: badgeLeft, y: badgeTop, width: badgeWidth, height: badgeHeight });
+          layout.push({ id: layer.id, ...layoutRect({ x: badgeLeft, y: badgeTop, width: badgeWidth, height: badgeHeight }, layer) });
           continue;
         }
         if (layer.kind === 'qr') {
@@ -1279,6 +1331,7 @@ void main(){
           const qrLeft = layer.x * width - drawWidth / 2;
           const qrTop = layer.y * height - drawWidth / 2;
           ctx.save();
+          applyLayerTransform(ctx, layer, width, height);
           ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
           const background = layer.bg === 'none' ? '' : normalizeColor(layer.bg) || '#ffffff';
           if (background !== '') {
@@ -1293,13 +1346,13 @@ void main(){
             }
           }
           ctx.restore();
-          layout.push({ id: layer.id, x: qrLeft, y: qrTop, width: drawWidth, height: drawWidth });
+          layout.push({ id: layer.id, ...layoutRect({ x: qrLeft, y: qrTop, width: drawWidth, height: drawWidth }, layer) });
           continue;
         }
         if (!layer.text) continue;
         const lines = wrapLines(ctx, layer, width);
         const bounds = drawLayer(ctx, layer, lines, width, height);
-        layout.push({ id: layer.id, ...bounds });
+        layout.push({ id: layer.id, ...layoutRect(bounds, layer) });
       }
       return layout;
     }
@@ -2650,6 +2703,33 @@ void main(){
         lineHeight: '16px',
       };
 
+      const transformRow = (layer) => h('div', { key: 'rowXf', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+        h(Stepper, {
+          key: 'rotate',
+          label: store.translate('rotate'),
+          stretch: true,
+          value: layer.rotate ?? 0,
+          min: -180,
+          max: 180,
+          step: 5,
+          onChange: (value) => patchLayer(layer.id, { rotate: value }),
+        }),
+        h('button', {
+          key: 'flipH',
+          type: 'button',
+          title: store.translate('flipH'),
+          onClick: () => patchLayer(layer.id, { flipH: !layer.flipH }),
+          style: layerToggleStyle(Boolean(layer.flipH)),
+        }, '⇋'),
+        h('button', {
+          key: 'flipV',
+          type: 'button',
+          title: store.translate('flipV'),
+          onClick: () => patchLayer(layer.id, { flipV: !layer.flipV }),
+          style: layerToggleStyle(Boolean(layer.flipV)),
+        }, '⇊'),
+      ]);
+
       const layerToggleStyle = (active) => ({
         width: 22,
         height: 22,
@@ -2861,6 +2941,7 @@ void main(){
                 onChange: (value) => patchLayer(layer.id, { letterSpacing: value }),
               }),
             ]),
+            transformRow(layer),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
               h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
@@ -2908,6 +2989,7 @@ void main(){
                 style: { width: 28, height: 24, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer', flex: '0 0 auto' },
               }),
             ]),
+            transformRow(layer),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
               h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
@@ -2959,6 +3041,7 @@ void main(){
                 onChange: (value) => patchLayer(layer.id, { opacity: value }),
               }),
             ]),
+            transformRow(layer),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),
               h(Stepper, { key: 'y', label: 'Y%', stretch: true, value: layer.y, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { y: value }) }),
@@ -3126,6 +3209,7 @@ void main(){
             onChange: (value) => patchLayer(layer.id, { shadow: value }),
           }),
         ]),
+        transformRow(layer),
         h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
           h(Stepper, {
             key: 'x',

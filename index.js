@@ -685,8 +685,11 @@ export function apply(ctx, config = {}) {
         await writeFile(`${target}.json`, JSON.stringify(snapshot), 'utf8').catch(() => {});
         exports.unshift({ name, path: target, bytes: body.length, spec: snapshot });
         // Rolling out means the entry is invisible forever — remove its files.
-        while (exports.length > 20) {
-          // Pinned entries are exempt: evict the oldest unpinned one instead.
+        for (;;) {
+          // The cap counts unpinned entries only; pinned ones are exempt.
+          let unpinned = 0;
+          for (const entry of exports) unpinned += entry.pinned ? 0 : 1;
+          if (unpinned <= 20) break;
           let index = -1;
           for (let i = exports.length - 1; i >= 0; i -= 1) {
             if (!exports[i].pinned) { index = i; break; }

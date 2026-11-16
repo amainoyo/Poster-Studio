@@ -10,6 +10,7 @@ const base = {
   colors: { c1: '#111111', c2: '#222222', c3: '#333333', c4: '#444444', c5: '#555555' },
   shader: { scale: 1, offsetX: 0, offsetY: 0, grain: 0, bloom: 0, vignette: 0, lightCore: 0, lightHalo: 0, speed: 1, paused: false },
   background: { image: 'data:image/png;base64,yy', opacity: 0.8 },
+  sizeOverrides: { '1200x628': { title: { x: 0.3, y: 0.5, size: 80 } } },
 };
 
 let pass = 0;
@@ -36,5 +37,8 @@ check('empty backdrop image removes the backdrop', r4.background.image === '');
 
 check('base is never mutated', base.layers.length === 3 && base.layers[0].size === 100);
 
-console.log(pass === 7 ? 'ALL PASS' : 'FAILED ' + (7 - pass));
-process.exit(pass === 7 ? 0 : 1);
+const r5 = applyPatch(base, { size: '1200x628', title: 'Hello' });
+check('applyPatch preserves per-size overrides', r5.sizeOverrides && r5.sizeOverrides['1200x628'] && r5.sizeOverrides['1200x628'].title.x === 0.3);
+
+console.log(pass === 8 ? 'ALL PASS' : 'FAILED ' + (8 - pass));
+process.exit(pass === 8 ? 0 : 1);

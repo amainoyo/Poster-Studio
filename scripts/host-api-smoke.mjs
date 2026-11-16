@@ -96,9 +96,11 @@ const del = async (path) => {
 {
   const first = await get('/poster-studio/spec');
   check('GET /spec', first.status === 200 && typeof first.body === 'object', String(first.status));
-  const saved = await post('/poster-studio/spec', { ...first.body, title: '烟雾测试', background: { image: 'data:image/jpeg;base64,AAAA', opacity: 0.4 } });
+  const saved = await post('/poster-studio/spec', { ...first.body, title: '烟雾测试', background: { image: 'data:image/jpeg;base64,AAAA', opacity: 0.4 }, sizeOverrides: { '1200x628': { title: { x: 0.42, size: 88 } } } });
   const ok = saved.status === 200 && saved.body.background && saved.body.background.opacity === 0.4;
   check('POST /spec background persists', ok, JSON.stringify(saved.body && saved.body.background));
+  const ov = saved.body && saved.body.sizeOverrides && saved.body.sizeOverrides['1200x628'] && saved.body.sizeOverrides['1200x628'].title;
+  check('POST /spec sizeOverrides round-trips', Boolean(ov && ov.x === 0.42 && ov.size === 88), JSON.stringify(saved.body && saved.body.sizeOverrides));
 }
 
 // 2. version save / list / load / delete

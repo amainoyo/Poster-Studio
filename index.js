@@ -140,6 +140,7 @@ function defaultSpec(config = {}) {
     ],
     colors,
     shader: { ...DEFAULT_SHADER },
+    sizeOverrides: {},
   };
 }
 
@@ -249,6 +250,31 @@ function normalizeLayer(value, fallback) {
  * @param {Record<string, unknown>} base - specification to start from.
  * @returns {Record<string, unknown>} the normalized specification.
  */
+/**
+ * Deep-copy a per-size overrides map, keeping only validated coordinate/size
+ * entries. Mirrors the client-side cloneOverrides so a saved spec round-trips.
+ * @param {unknown} value - candidate overrides map keyed by size then layer id.
+ * @returns {Record<string, any>} a fresh, validated copy.
+ */
+function cloneOverrides(value) {
+  const out = {};
+  if (!value || typeof value !== 'object') return out;
+  for (const [size, byLayer] of Object.entries(value)) {
+    if (!byLayer || typeof byLayer !== 'object') continue;
+    const bucket = {};
+    for (const [id, over] of Object.entries(byLayer)) {
+      if (!over || typeof over !== 'object') continue;
+      const clean = {};
+      if (typeof over.x === 'number' && over.x >= 0 && over.x <= 1) clean.x = over.x;
+      if (typeof over.y === 'number' && over.y >= 0 && over.y <= 1) clean.y = over.y;
+      if (typeof over.size === 'number' && over.size >= 8 && over.size <= 2000) clean.size = Math.round(over.size);
+      if (Object.keys(clean).length > 0) bucket[id] = clean;
+    }
+    if (Object.keys(bucket).length > 0) out[size] = bucket;
+  }
+  return out;
+}
+
 function normalizeSpec(value, base) {
   const source = value && typeof value === 'object' ? value : {};
   const sourceLayers = Array.isArray(source.layers) ? source.layers : base.layers;
@@ -302,6 +328,7 @@ function normalizeSpec(value, base) {
     colors,
     shader,
     background,
+    sizeOverrides: source.sizeOverrides !== undefined ? cloneOverrides(source.sizeOverrides) : cloneOverrides(base.sizeOverrides),
   };
 }
 
@@ -324,6 +351,7 @@ export function applyPatch(base, patch) {
     colors: { ...base.colors },
     shader: { ...base.shader },
     background: { ...(base.background ?? {}) },
+    sizeOverrides: cloneOverrides(base.sizeOverrides),
   };
   if (patch.background && typeof patch.background === 'object') {
     next.background = normalizeSpec({ background: patch.background, size: base.size }, { ...base, background: next.background }).background;

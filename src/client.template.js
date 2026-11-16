@@ -444,6 +444,9 @@ void main(){
         vertical: 'Vertical text',
         exportFormat: 'Export format',
         quality: 'Quality',
+        perSize: 'Per-size',
+        perSizeHint: 'Edit this size’s position/size independently of other sizes',
+        perSizeReset: 'Reset this size to the shared layout',
         pin: 'Pin',
         unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
@@ -558,6 +561,9 @@ void main(){
         vertical: '竖排文字',
         exportFormat: '导出格式',
         quality: '质量',
+        perSize: '此尺寸独立',
+        perSizeHint: '单独编辑当前尺寸的位置/字号，不影响其它尺寸',
+        perSizeReset: '重置此尺寸为共享布局',
         pin: '钉住（不被淘汰）',
         unpin: '取消钉住',
         noExports: '还没有导出过海报。',
@@ -584,6 +590,29 @@ void main(){
     }
 
     /**
+     * Deep-copy a per-size overrides map ({ [size]: { [layerId]: { x,y,size } } }).
+     * @param {Record<string, any> | undefined} value - the overrides map.
+     * @returns {Record<string, any>} a fresh copy.
+     */
+    function cloneOverrides(value) {
+      const out = {};
+      if (!value || typeof value !== 'object') return out;
+      for (const [size, byLayer] of Object.entries(value)) {
+        if (!byLayer || typeof byLayer !== 'object') continue;
+        out[size] = {};
+        for (const [id, over] of Object.entries(byLayer)) {
+          if (!over || typeof over !== 'object') continue;
+          const clean = {};
+          if (typeof over.x === 'number' && over.x >= 0 && over.x <= 1) clean.x = over.x;
+          if (typeof over.y === 'number' && over.y >= 0 && over.y <= 1) clean.y = over.y;
+          if (typeof over.size === 'number' && over.size >= 8 && over.size <= 2000) clean.size = over.size;
+          out[size][id] = clean;
+        }
+      }
+      return out;
+    }
+
+    /**
      * Merge one partial specification into a complete one.
      * @param {Record<string, any>} base - specification to start from.
      * @param {Record<string, any>} patch - partial specification.
@@ -597,6 +626,7 @@ void main(){
         colors: { ...base.colors },
         shader: { ...base.shader },
         background: { ...(base.background ?? {}) },
+        sizeOverrides: cloneOverrides(base.sizeOverrides),
       };
       if (!patch || typeof patch !== 'object') return next;
       if (patch.background && typeof patch.background === 'object') {
@@ -681,6 +711,19 @@ void main(){
         }
         next.layers = list.slice(0, 12);
       }
+      if (patch.replace === true) {
+        // A replace payload is authoritative: per-size overrides point at the
+        // previous layer set, so they only survive when the payload ships its own.
+        next.sizeOverrides = cloneOverrides(patch.sizeOverrides);
+      } else if (patch.sizeOverrides && typeof patch.sizeOverrides === 'object') {
+        const merged = { ...next.sizeOverrides };
+        for (const [size, byLayer] of Object.entries(patch.sizeOverrides)) {
+          if (byLayer === null) { delete merged[size]; continue; }
+          const clean = cloneOverrides({ [size]: byLayer })[size] ?? {};
+          merged[size] = { ...(merged[size] ?? {}), ...clean };
+        }
+        next.sizeOverrides = merged;
+      }
       return next;
     }
 
@@ -710,6 +753,7 @@ void main(){
           speed: 1,
           paused: false,
         },
+        sizeOverrides: {},
       };
       // The Host owns the live design. Until its route answers, the studio
       // opens on the first bundled preset instead of the placeholder copy.
@@ -1378,11 +1422,29 @@ void main(){
      * @param {() => void} [onImageReady] - repaint hook for late images.
      * @returns {Array<{ id: string, x: number, y: number, width: number, height: number }>} the layer bounds.
      */
+    /**
+     * Resolve the layers effective at one canvas size: the base layers with any
+     * per-size coordinate/size overrides (spec.sizeOverrides[size][layerId])
+     * merged on top, so each preset size can carry its own tuned layout.
+     * @param {Record<string, any>} spec - the full specification.
+     * @param {string} sizeKey - the size being rendered, e.g. "1080x1350".
+     * @returns {Array<Record<string, any>>} the layers to draw.
+     */
+    function resolveLayersForSize(spec, sizeKey) {
+      const layers = spec.layers ?? [];
+      const overrides = spec.sizeOverrides && sizeKey ? spec.sizeOverrides[sizeKey] : null;
+      if (!overrides) return layers;
+      return layers.map((layer) => {
+        const over = overrides[layer.id];
+        return over ? { ...layer, ...over } : layer;
+      });
+    }
+
     function renderText(ctx, spec, width, height, onImageReady, loadedFonts) {
       ctx.clearRect(0, 0, width, height);
       const layout = [];
       const fontState = loadedFonts ?? new Set();
-      for (const layer of spec.layers) {
+      for (const layer of resolveLayersForSize(spec, spec.size)) {
         const fontTarget = onlineFontTarget(layer);
         if (layer.text && fontTarget && onImageReady && !fontState.has(fontTarget.key)) {
           const pending = ensureOnlineFont(layer, onImageReady);
@@ -2360,6 +2422,7 @@ void main(){
       React.useEffect(() => {
         if (typeof localStorage !== 'undefined') localStorage.setItem('poster-studio.exportQuality', String(exportQuality));
       }, [exportQuality]);
+      const [perSizeEdit, setPerSizeEdit] = React.useState(false);
       const imageFileInput = React.useRef(null);
       const pendingImageLayer = React.useRef(null);
       const bgFileInput = React.useRef(null);
@@ -2570,6 +2633,17 @@ void main(){
       const preset = parseSize(spec.size);
 
       const patchLayer = (id, changes) => {
+        // In per-size mode, position/size edits are stored as overrides for the
+        // current canvas size instead of the shared base layer.
+        const perSizeKeys = Object.keys(changes).filter((key) => key === 'x' || key === 'y' || key === 'size');
+        if (perSizeEdit && perSizeKeys.length > 0) {
+          const bucket = { ...((spec.sizeOverrides ?? {})[spec.size] ?? {}) };
+          const forLayer = { ...(bucket[id] ?? {}) };
+          for (const key of perSizeKeys) forLayer[key] = changes[key];
+          bucket[id] = forLayer;
+          store.applySpec({ sizeOverrides: { [spec.size]: bucket } });
+          return;
+        }
         store.applySpec({
           layers: spec.layers.map((layer) => (layer.id === id ? { ...layer, ...changes } : layer)),
         });
@@ -4077,6 +4151,29 @@ void main(){
             precision: 0,
             onChange: (value) => setExportQuality(value),
           }),
+          h('div', { key: 'spacer', style: { flex: 1 } }),
+          h('button', {
+            key: 'perSize',
+            type: 'button',
+            title: store.translate('perSizeHint'),
+            onClick: () => setPerSizeEdit((value) => !value),
+            style: {
+              padding: '5px 10px',
+              borderRadius: 7,
+              border: `1px solid ${perSizeEdit ? 'var(--dsw-alias-brand-primary, #4d6bfe)' : 'var(--dsw-alias-border-l1, #34343c)'}`,
+              background: perSizeEdit ? 'var(--dsw-alias-brand-primary, #4d6bfe)' : 'transparent',
+              color: perSizeEdit ? '#ffffff' : 'var(--dsw-alias-label-secondary, #9a9aa6)',
+              fontSize: 12,
+              cursor: 'pointer',
+            },
+          }, `${store.translate('perSize')}${((spec.sizeOverrides ?? {})[spec.size] && Object.keys((spec.sizeOverrides ?? {})[spec.size]).length > 0) ? ' •' : ''}`),
+          ((spec.sizeOverrides ?? {})[spec.size] && Object.keys((spec.sizeOverrides ?? {})[spec.size]).length > 0) ? h('button', {
+            key: 'perSizeReset',
+            type: 'button',
+            title: store.translate('perSizeReset'),
+            onClick: () => { store.applySpec({ sizeOverrides: { [spec.size]: null } }); setPerSizeEdit(false); },
+            style: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
+          }, '↺') : null,
           h('button', {
             key: 'saveVersion',
             type: 'button',

@@ -385,6 +385,8 @@ void main(){
         addQr: 'Add QR',
         qrValue: 'Link or text',
         qrColor: 'QR color',
+        color: 'Color',
+        qrSize: 'Size',
         badgeLayer: 'Badge',
         addBadge: 'Add badge',
         badgeText: 'Badge text',
@@ -485,6 +487,8 @@ void main(){
         addQr: '添加二维码',
         qrValue: '链接或文本',
         qrColor: '二维码颜色',
+        color: '颜色',
+        qrSize: '大小',
         badgeLayer: '角标',
         addBadge: '添加角标',
         badgeText: '角标文字',
@@ -2765,16 +2769,7 @@ void main(){
         }
         if (layer.kind === 'qr') {
           return h('div', { key: layer.id, style: layerCardStyle }, [
-            layerHead(layer, index, [
-              h('input', {
-                key: 'color',
-                type: 'color',
-                value: normalizeColor(layer.color) || '#000000',
-                title: store.translate('qrColor'),
-                onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-                style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-              }),
-            ]),
+            layerHead(layer, index, []),
             ...(collapsed ? [] : [
             h('input', {
               key: 'value',
@@ -2789,10 +2784,10 @@ void main(){
               onKeyDown: (event) => { if (event.key === 'Enter') event.currentTarget.blur(); },
               style: fieldStyle,
             }),
-            h('div', { key: 'size', style: { display: 'flex', gap: 10 } }, [
+            h('div', { key: 'size', style: { display: 'flex', alignItems: 'center', gap: 10 } }, [
               h(Stepper, {
                 key: 'w',
-                label: store.translate('imageWidth'),
+                label: store.translate('qrSize'),
                 stretch: true,
                 value: layer.width ?? 0.28,
                 min: 0.02,
@@ -2801,6 +2796,15 @@ void main(){
                 scale: 100,
                 precision: 0,
                 onChange: (value) => patchLayer(layer.id, { width: value }),
+              }),
+              h('span', { key: 'colorLabel', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' } }, store.translate('color')),
+              h('input', {
+                key: 'color',
+                type: 'color',
+                value: normalizeColor(layer.color) || '#000000',
+                title: store.translate('qrColor'),
+                onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+                style: { width: 28, height: 24, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer', flex: '0 0 auto' },
               }),
             ]),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
@@ -2867,16 +2871,7 @@ void main(){
           key: layer.id,
           style: layerCardStyle,
         }, [
-          layerHead(layer, index, [
-            h('input', {
-              key: 'color',
-              type: 'color',
-              value: layer.color.slice(0, 7),
-              title: store.translate('palette'),
-              onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
-              style: { width: 18, height: 18, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer' },
-            }),
-          ]),
+          layerHead(layer, index, []),
           ...(collapsed ? [] : [
           h('input', {
             key: 'text',
@@ -2902,6 +2897,15 @@ void main(){
             h('option', { key: '', value: '' }, store.translate('fontDefault')),
             ...Object.entries(FONT_OPTIONS).map(([key, option]) => h('option', { key, value: key }, option.label)),
           ]),
+          h('span', { key: 'colorLabel', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' } }, store.translate('color')),
+          h('input', {
+            key: 'color',
+            type: 'color',
+            value: layer.color.slice(0, 7),
+            title: store.translate('color'),
+            onChange: (event) => patchLayer(layer.id, { color: event.target.value }),
+            style: { width: 28, height: 24, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer', flex: '0 0 auto' },
+          }),
         ]),
         h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
           h(Stepper, {

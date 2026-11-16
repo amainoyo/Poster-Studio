@@ -442,6 +442,8 @@ void main(){
         gradientClear: 'Remove gradient',
         glow: 'Glow',
         vertical: 'Vertical text',
+        exportFormat: 'Export format',
+        quality: 'Quality',
         pin: 'Pin',
         unpin: 'Unpin',
         noExports: 'Nothing exported yet.',
@@ -554,6 +556,8 @@ void main(){
         gradientClear: '取消渐变',
         glow: '辉光',
         vertical: '竖排文字',
+        exportFormat: '导出格式',
+        quality: '质量',
         pin: '钉住（不被淘汰）',
         unpin: '取消钉住',
         noExports: '还没有导出过海报。',
@@ -1754,7 +1758,7 @@ void main(){
      * @param {Record<string, any>} spec - the specification.
      * @returns {Promise<Blob | null>} the rendered image.
      */
-    async function renderPng(spec) {
+    async function renderPng(spec, format = 'png', quality = 0.92) {
       const preset = parseSize(spec.size);
       await Promise.all([preloadSpecImages(spec), preloadSpecFonts(spec)]);
       const renderer = createRenderer();
@@ -1763,14 +1767,27 @@ void main(){
         renderer.applySpec(spec);
         await new Promise((resolve) => requestAnimationFrame(resolve));
         renderer.setSize(preset.width, preset.height, preset.width, preset.height);
-        const output = document.createElement('canvas');
-        output.width = preset.width;
-        output.height = preset.height;
-        const context = output.getContext('2d');
+        const output0 = document.createElement('canvas');
+        output0.width = preset.width;
+        output0.height = preset.height;
+        const context = output0.getContext('2d');
         context.drawImage(renderer.background, 0, 0, preset.width, preset.height);
         context.drawImage(renderer.bgOverlay, 0, 0, preset.width, preset.height);
         context.drawImage(renderer.text, 0, 0, preset.width, preset.height);
-        return await new Promise((resolve) => output.toBlob(resolve, 'image/png'));
+        let output = output0;
+        if (format !== 'png') {
+          // JPEG/WebP have no usable alpha here (the shader fills the canvas),
+          // so paint the poster over an opaque base before encoding.
+          const flat = document.createElement('canvas');
+          flat.width = output.width;
+          flat.height = output.height;
+          const fctx = flat.getContext('2d');
+          fctx.fillStyle = '#000000';
+          fctx.fillRect(0, 0, flat.width, flat.height);
+          fctx.drawImage(output, 0, 0);
+          output = flat;
+        }
+        return await new Promise((resolve) => output.toBlob(resolve, format === 'png' ? 'image/png' : `image/${format}`, format === 'png' ? undefined : quality));
       } finally {
         renderer.dispose();
       }
@@ -2329,6 +2346,20 @@ void main(){
       const [status, setStatus] = React.useState('');
       const [openTick, setOpenTick] = React.useState(0);
       const [drafts, setDrafts] = React.useState({});
+      const [exportFormat, setExportFormat] = React.useState(() => {
+        const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('poster-studio.exportFormat') : null;
+        return saved === 'jpeg' || saved === 'webp' ? saved : 'png';
+      });
+      const [exportQuality, setExportQuality] = React.useState(() => {
+        const saved = typeof localStorage !== 'undefined' ? Number(localStorage.getItem('poster-studio.exportQuality')) : 0;
+        return saved > 0 && saved <= 1 ? saved : 0.92;
+      });
+      React.useEffect(() => {
+        if (typeof localStorage !== 'undefined') localStorage.setItem('poster-studio.exportFormat', exportFormat);
+      }, [exportFormat]);
+      React.useEffect(() => {
+        if (typeof localStorage !== 'undefined') localStorage.setItem('poster-studio.exportQuality', String(exportQuality));
+      }, [exportQuality]);
       const imageFileInput = React.useRef(null);
       const pendingImageLayer = React.useRef(null);
       const bgFileInput = React.useRef(null);
@@ -2625,16 +2656,20 @@ void main(){
       const exportPng = async () => {
         setStatus(store.translate('export') + '…');
         try {
-          const blob = await renderPng(store.spec);
-          if (!blob) throw new Error('the poster could not be rendered');
+          const pngBlob = await renderPng(store.spec);
+          if (!pngBlob) throw new Error('the poster could not be rendered');
           // Hand the rendered poster to the Host as well, so the agent-side
-          // export tool can deliver the very same PNG.
+          // export tool can deliver the very same PNG (always the lossless master).
           void fetch('/poster-studio/export', {
             method: 'POST',
             headers: { 'content-type': 'image/png' },
-            body: blob,
+            body: pngBlob,
           }).catch(() => { /* the local download below is the primary path */ });
-          const suggested = `poster-${spec.size}.png`;
+          const format = exportFormat;
+          const mime = format === 'png' ? 'image/png' : `image/${format}`;
+          const ext = format === 'jpeg' ? 'jpg' : format;
+          const blob = format === 'png' ? pngBlob : await renderPng(store.spec, format, exportQuality);
+          const suggested = `poster-${spec.size}.${ext}`;
           if (typeof window.showSaveFilePicker === 'function') {
             // Native Save As dialog: the user picks the folder and file name.
             store.pickerActive = true;
@@ -2643,7 +2678,7 @@ void main(){
             try {
               handle = await window.showSaveFilePicker({
                 suggestedName: suggested,
-                types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }],
+                types: [{ description: `${format.toUpperCase()} image`, accept: { [mime]: [`.${ext}`] } }],
               });
             } finally {
               store.pickerActive = false;
@@ -4011,6 +4046,37 @@ void main(){
               cursor: 'pointer',
             },
           }, store.translate('exportAll')),
+          h('div', {
+            key: 'fmtGroup',
+            title: store.translate('exportFormat'),
+            style: { display: 'flex', alignItems: 'center', gap: 2, padding: '1px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)' },
+          }, [
+            ...[['png', 'PNG'], ['jpeg', 'JPG'], ['webp', 'WebP']].map(([key, label]) => h('button', {
+              key,
+              type: 'button',
+              onClick: () => setExportFormat(key),
+              style: {
+                padding: '3px 6px',
+                borderRadius: 5,
+                border: 'none',
+                background: exportFormat === key ? 'var(--dsw-alias-brand-primary, #4d6bfe)' : 'transparent',
+                color: exportFormat === key ? '#ffffff' : 'var(--dsw-alias-label-secondary, #9a9aa6)',
+                fontSize: 11,
+                cursor: 'pointer',
+              },
+            }, label)),
+          ]),
+          exportFormat === 'png' ? null : h(Stepper, {
+            key: 'quality',
+            label: store.translate('quality'),
+            value: exportQuality,
+            min: 0.4,
+            max: 1,
+            step: 0.02,
+            scale: 100,
+            precision: 0,
+            onChange: (value) => setExportQuality(value),
+          }),
           h('button', {
             key: 'saveVersion',
             type: 'button',

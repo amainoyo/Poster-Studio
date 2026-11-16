@@ -2130,7 +2130,12 @@ void main(){
       const [mode, setMode] = React.useState('single');
       const [fullscreen, setFullscreen] = React.useState(false);
       const [customSize, setCustomSize] = React.useState(null);
-      const [collapsedIds, setCollapsedIds] = React.useState([]);
+      // Open with a tidy list: only the headline card expanded. Manual
+      // expansions survive the session; the panel unmounts when closed, so
+      // every open starts from this default again.
+      const [collapsedIds, setCollapsedIds] = React.useState(() => (spec.layers || [])
+        .filter((layer) => layer.id !== 'title')
+        .map((layer) => layer.id));
       const [sizeTip, setSizeTip] = React.useState(null);
       const [versionsOpen, setVersionsOpen] = React.useState(false);
       const [status, setStatus] = React.useState('');

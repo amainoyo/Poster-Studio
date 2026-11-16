@@ -2302,6 +2302,32 @@ void main(){
         return () => clearInterval(timer);
       }, []);
 
+      // poster_preview: when the Host tool bumps the tick, render the live
+      // canvas and POST it back so the agent can review the real pixels.
+      React.useEffect(() => {
+        let seenTick = 0;
+        let cancelled = false;
+        const poll = async () => {
+          try {
+            const response = await fetch('/poster-studio/preview-tick');
+            if (!response.ok) return;
+            const data = await response.json();
+            const tick = Number(data && data.tick) || 0;
+            if (cancelled || tick <= seenTick) return;
+            seenTick = tick;
+            const blob = await renderPng(store.spec);
+            if (!blob || cancelled) return;
+            await fetch(`/poster-studio/preview?tick=${tick}`, {
+              method: 'POST',
+              headers: { 'content-type': 'image/png' },
+              body: blob,
+            });
+          } catch { /* preview is best effort */ }
+        };
+        const timer = setInterval(() => { void poll(); }, 3000);
+        return () => { cancelled = true; clearInterval(timer); };
+      }, []);
+
       React.useEffect(() => {
         let cancelled = false;
         const load = async () => {

@@ -1,6 +1,6 @@
 /* Host-side smoke test for the poster-studio HTTP routes. */
 import http from 'node:http';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -164,6 +164,17 @@ const del = async (path) => {
 {
   const bad = await fetch(base + '/poster-studio/versions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{oops' });
   check('POST /versions invalid json -> 400', bad.status === 400, String(bad.status));
+}
+
+// 7. preview round trip: tick visible, panel POST accepted
+{
+  const tick = await get('/poster-studio/preview-tick');
+  check('GET /preview-tick', tick.status === 200 && typeof tick.body.tick === 'number', JSON.stringify(tick.body));
+  const sent = await fetch(base + '/poster-studio/preview?tick=1', { method: 'POST', headers: { 'content-type': 'image/png' }, body: Buffer.from('89504e470d0a1a0a', 'hex') });
+  const sentBody = await sent.json().catch(() => null);
+  check('POST /preview stores png', sent.status === 200 && sentBody && sentBody.ok === true, String(sent.status));
+  const saved = existsSync(join(root, 'preview.png'));
+  check('preview.png written', saved);
 }
 
 server.close();

@@ -463,6 +463,11 @@ export function apply(ctx, config = {}) {
   let saveTimer = null;
   const exports = [];
 
+  // poster_preview: the tool bumps tick; the panel polls it, renders its live
+  // canvas and POSTs the PNG back to /preview, which resolves the wait.
+  let previewTick = 0;
+  let previewResolve = null;
+
   const profileRoot = process.env.DSH_PROFILE_DIR
     ?? join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'poster-studio');
   const exportDir = join(profileRoot, 'exports');
@@ -742,6 +747,51 @@ export function apply(ctx, config = {}) {
       },
     });
 
+    const disposePreview = webServer.register({
+      kind: 'exact',
+      path: '/poster-studio/preview-tick',
+      handler: async (req, res) => {
+        const rejection = connection?.requestRejection(req);
+        if (rejection !== undefined) {
+          res.statusCode = rejection;
+          res.end();
+          return;
+        }
+        sendJson(res, 200, { tick: previewTick });
+      },
+    });
+
+    const disposePreviewUpload = webServer.register({
+      kind: 'exact',
+      path: '/poster-studio/preview',
+      handler: async (req, res) => {
+        const rejection = connection?.requestRejection(req);
+        if (rejection !== undefined) {
+          res.statusCode = rejection;
+          res.end();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end();
+          return;
+        }
+        const body = await readBoundedBytes(req);
+        if (body === null || body.length === 0) {
+          sendJson(res, 413, { message: 'preview too large' });
+          return;
+        }
+        await mkdir(profileRoot, { recursive: true });
+        await writeFile(join(profileRoot, 'preview.png'), body);
+        if (previewResolve) {
+          const finish = previewResolve;
+          previewResolve = null;
+          finish();
+        }
+        sendJson(res, 200, { ok: true });
+      },
+    });
+
     const disposeVersions = webServer.register({
       kind: 'exact',
       path: '/poster-studio/versions',
@@ -901,6 +951,8 @@ export function apply(ctx, config = {}) {
       disposeSpec();
       disposeExport();
       disposeLibrary();
+      disposePreview();
+      disposePreviewUpload();
       disposeVersions();
       disposeVersionOne();
       disposePalettes();
@@ -1225,5 +1277,47 @@ export function apply(ctx, config = {}) {
       });
       return dispose;
     });
+  });
+
+  ctx.effect(() => {
+    const dispose = ctx.tools.register({
+      name: 'poster_preview',
+      description:
+        'Capture the current poster panel as a PNG so you can actually SEE the design (预览海报). '
+        + 'Call it after poster_design changes to review typography, contrast, spacing and overflow with vision, '
+        + 'then refine with poster_design. The studio panel must be open; read the returned path as an image.',
+      parameters: {},
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['path'],
+          properties: {
+            path: { type: 'string' },
+            bytes: { type: 'number' },
+          },
+        },
+        render: (_args, value) => [{ type: 'text', text: `Poster preview captured at ${value.path}` }],
+      },
+      async execute() {
+        previewTick += 1;
+        let timer = null;
+        const arrived = await new Promise((resolve) => {
+          previewResolve = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          timer = setTimeout(() => {
+            previewResolve = null;
+            resolve(false);
+          }, 10000);
+        });
+        if (!arrived) throw new Error('the poster panel did not answer within 10s — open the Poster Studio panel and retry');
+        const target = join(profileRoot, 'preview.png');
+        const bytes = await readFile(target);
+        return { path: target, bytes: bytes.length };
+      },
+    });
+    return dispose;
   });
 }

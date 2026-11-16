@@ -1917,6 +1917,10 @@ void main(){
           key: entry.id,
           title: locked ? store.translate('lockedLayer') : layer.text,
           onPointerDown: locked ? undefined : (event) => startDrag(event, entry.id),
+          onDoubleClick: (event) => {
+            event.preventDefault();
+            if (props.onFocusLayer) props.onFocusLayer(entry.id);
+          },
           style: {
             position: 'absolute',
             left,
@@ -2707,6 +2711,17 @@ void main(){
       const isCollapsed = (id) => (collapseOverrides.has(id) ? collapseOverrides.get(id) : id !== 'title');
       const toggleCollapse = (id) => setCollapseOverrides((current) => new Map(current).set(id, !isCollapsed(id)));
 
+      // Double-clicking a layer on the canvas jumps to its card: switch to the
+      // content tab, expand it, and scroll it into view.
+      const focusLayer = (id) => {
+        setTab('content');
+        setCollapseOverrides((current) => new Map(current).set(id, false));
+        window.setTimeout(() => {
+          const node = document.querySelector(`[data-layer-id="${CSS.escape(id)}"]`);
+          if (node && node.scrollIntoView) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+      };
+
       /**
        * The collapsible header shared by every layer card.
        * @param {Record<string, any>} layer - the layer.
@@ -2750,7 +2765,7 @@ void main(){
       const layerControls = spec.layers.map((layer, index) => {
         const collapsed = isCollapsed(layer.id);
         if (layer.kind === 'badge') {
-          return h('div', { key: layer.id, style: layerCardStyle }, [
+          return h('div', { key: layer.id, 'data-layer-id': layer.id, style: layerCardStyle }, [
             layerHead(layer, index, []),
             ...(collapsed ? [] : [
             h('input', {
@@ -2836,7 +2851,7 @@ void main(){
           ]);
         }
         if (layer.kind === 'qr') {
-          return h('div', { key: layer.id, style: layerCardStyle }, [
+          return h('div', { key: layer.id, 'data-layer-id': layer.id, style: layerCardStyle }, [
             layerHead(layer, index, []),
             ...(collapsed ? [] : [
             h('input', {
@@ -2883,7 +2898,7 @@ void main(){
           ]);
         }
         if (layer.kind === 'image') {
-          return h('div', { key: layer.id, style: layerCardStyle }, [
+          return h('div', { key: layer.id, 'data-layer-id': layer.id, style: layerCardStyle }, [
             layerHead(layer, index, []),
             ...(collapsed ? [] : [
             h('div', { key: 'thumbRow', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
@@ -2935,6 +2950,7 @@ void main(){
         }
         return h('div', {
           key: layer.id,
+          'data-layer-id': layer.id,
           style: layerCardStyle,
         }, [
           layerHead(layer, index, []),
@@ -3510,7 +3526,7 @@ void main(){
           onTipMove: moveSizeTip,
           onTipLeave: () => setSizeTip(null),
         })
-        : h(PosterStage, { spec });
+        : h(PosterStage, { spec, onFocusLayer: focusLayer });
 
       if (!embedded && !openFlag && !store.open) {
         void openTick;

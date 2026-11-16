@@ -2760,10 +2760,8 @@ void main(){
                 style: { width: 28, height: 24, padding: 0, border: '1px solid var(--dsw-alias-border-l1, #34343c)', borderRadius: 5, background: 'transparent', cursor: 'pointer', flex: '0 0 auto' },
               }),
             ]),
-            h('div', { key: 'row', style: { display: 'flex', gap: 10 } }, [
+            h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
               h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 2000, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
-            ]),
-            h('div', { key: 'rowStyle', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
               h('label', {
                 key: 'weightWrap',
                 style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' },

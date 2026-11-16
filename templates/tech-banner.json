@@ -1,11 +1,11 @@
 {
   "name": "科技横幅",
   "size": "1200x628",
-  "colors": { "c1": "#050a16", "c2": "#0b1a33", "c3": "#1f5fbf", "c4": "#6fd0ff", "c5": "#071120" },
-  "shader": { "scale": 1.2, "grain": 0.012, "bloom": 0.6 },
+  "colors": { "c1": "#06111f", "c2": "#0a2a52", "c3": "#1f6fd0", "c4": "#7fd4ff", "c5": "#04101e" },
+  "shader": { "scale": 1.1, "offsetX": 0, "offsetY": -0.3, "grain": 0.01, "bloom": 0.42, "vignette": 0.45, "lightCore": 0.12, "lightHalo": 0.3, "speed": 1, "paused": false },
   "layers": [
-    { "id": "title", "text": "在此输入标题", "size": 88, "weight": 700, "align": "center", "x": 0.5, "y": 0.4, "color": "#ffffff", "lineHeight": 1.15, "letterSpacing": 2, "maxWidth": 0.86 },
-    { "id": "subtitle", "text": "一行说清楚它是什么", "size": 30, "weight": 400, "align": "center", "x": 0.5, "y": 0.57, "color": "#bcd6f5cc", "lineHeight": 1.5, "letterSpacing": 1, "maxWidth": 0.72 },
-    { "id": "footer", "text": "署名 · 2026", "size": 22, "weight": 400, "align": "center", "x": 0.5, "y": 0.9, "color": "#ffffff77", "lineHeight": 1.4, "letterSpacing": 0, "maxWidth": 0.8 }
+    { "id": "title", "kind": "text", "text": "重新定义你的工作流", "size": 84, "weight": 700, "align": "center", "x": 0.5, "y": 0.42, "color": "#ffffff", "shadow": 0.2, "lineHeight": 1.15, "letterSpacing": 2, "maxWidth": 0.86 },
+    { "id": "subtitle", "kind": "text", "text": "插件化的智能体工作台", "size": 28, "weight": 400, "align": "center", "x": 0.5, "y": 0.61, "color": "#cfe3fb", "shadow": 0.4, "lineHeight": 1.5, "letterSpacing": 4, "maxWidth": 0.82 },
+    { "id": "footer", "kind": "text", "text": "HARNESS · 2026", "size": 20, "weight": 400, "align": "center", "x": 0.5, "y": 0.88, "color": "#ffffff", "opacity": 0.6, "lineHeight": 1.4, "letterSpacing": 6, "maxWidth": 0.8 }
   ]
 }

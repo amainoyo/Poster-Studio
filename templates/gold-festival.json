@@ -1,11 +1,11 @@
 {
   "name": "节庆红金",
   "size": "1080x1080",
-  "colors": { "c1": "#1c0505", "c2": "#4a0d0d", "c3": "#b3241f", "c4": "#ffd27a", "c5": "#250707" },
-  "shader": { "scale": 1.4, "grain": 0.02, "bloom": 0.65, "lightCore": 0.7 },
+  "colors": { "c1": "#1a0404", "c2": "#4a0d0d", "c3": "#b8271f", "c4": "#ffcf7a", "c5": "#200606" },
+  "shader": { "scale": 1.3, "offsetX": 0, "offsetY": -0.35, "grain": 0.018, "bloom": 0.4, "vignette": 0.6, "lightCore": 0.12, "lightHalo": 0.3, "speed": 1, "paused": false },
   "layers": [
-    { "id": "title", "text": "节日主标题", "size": 128, "weight": 800, "align": "center", "x": 0.5, "y": 0.44, "color": "#ffe8b0", "lineHeight": 1.2, "letterSpacing": 6, "maxWidth": 0.86 },
-    { "id": "subtitle", "text": "一句祝福或主题语", "size": 36, "weight": 400, "align": "center", "x": 0.5, "y": 0.59, "color": "#ffffffc9", "lineHeight": 1.6, "letterSpacing": 4, "maxWidth": 0.8 },
-    { "id": "footer", "text": "—— 署名 ——", "size": 24, "weight": 400, "align": "center", "x": 0.5, "y": 0.82, "color": "#ffffff70", "lineHeight": 1.4, "letterSpacing": 2, "maxWidth": 0.8 }
+    { "id": "title", "kind": "text", "text": "新春快乐", "size": 150, "weight": 800, "align": "center", "x": 0.5, "y": 0.44, "color": "#ffeec4", "shadow": 0.3, "lineHeight": 1.2, "letterSpacing": 8, "maxWidth": 0.86 },
+    { "id": "subtitle", "kind": "text", "text": "阖家团圆 · 万事如意", "size": 40, "weight": 400, "align": "center", "x": 0.5, "y": 0.6, "color": "#fff3d6", "shadow": 0.5, "lineHeight": 1.6, "letterSpacing": 6, "maxWidth": 0.82 },
+    { "id": "footer", "kind": "text", "text": "—— 恭贺新禧 ——", "size": 24, "weight": 400, "align": "center", "x": 0.5, "y": 0.82, "color": "#ffffff", "opacity": 0.55, "lineHeight": 1.4, "letterSpacing": 4, "maxWidth": 0.8 }
   ]
 }

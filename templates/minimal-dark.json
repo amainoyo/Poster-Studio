@@ -1,11 +1,11 @@
 {
   "name": "极简黑白",
   "size": "1080x1350",
-  "colors": { "c1": "#0a0a0c", "c2": "#141418", "c3": "#3a3a42", "c4": "#d8d8de", "c5": "#0c0c10" },
-  "shader": { "scale": 1.6, "grain": 0.01, "bloom": 0.35, "vignette": 0.7 },
+  "colors": { "c1": "#0a0a0c", "c2": "#16161b", "c3": "#34343d", "c4": "#d8d8de", "c5": "#0c0c10" },
+  "shader": { "scale": 1.5, "offsetX": 0, "offsetY": 0, "grain": 0.01, "bloom": 0.3, "vignette": 0.55, "lightCore": 0.08, "lightHalo": 0.3, "speed": 1, "paused": false },
   "layers": [
-    { "id": "title", "text": "标题", "size": 150, "weight": 300, "align": "center", "x": 0.5, "y": 0.42, "color": "#ffffff", "lineHeight": 1.1, "letterSpacing": 12, "maxWidth": 0.86 },
-    { "id": "subtitle", "text": "一行克制的说明", "size": 28, "weight": 300, "align": "center", "x": 0.5, "y": 0.55, "color": "#ffffff99", "lineHeight": 1.7, "letterSpacing": 6, "maxWidth": 0.7 },
-    { "id": "footer", "text": "MINIMAL · 2026", "size": 20, "weight": 400, "align": "center", "x": 0.5, "y": 0.9, "color": "#ffffff55", "lineHeight": 1.4, "letterSpacing": 4, "maxWidth": 0.8 }
+    { "id": "title", "kind": "text", "text": "至繁归于至简", "size": 120, "weight": 300, "align": "center", "x": 0.5, "y": 0.44, "color": "#ffffff", "shadow": 0.15, "lineHeight": 1.1, "letterSpacing": 16, "maxWidth": 0.86 },
+    { "id": "subtitle", "kind": "text", "text": "LESS · BUT · BETTER", "size": 26, "weight": 300, "align": "center", "x": 0.5, "y": 0.58, "color": "#ffffff", "opacity": 0.62, "shadow": 0.25, "lineHeight": 1.7, "letterSpacing": 10, "maxWidth": 0.8 },
+    { "id": "footer", "kind": "text", "text": "MINIMAL SERIES · 2026", "size": 18, "weight": 400, "align": "center", "x": 0.5, "y": 0.9, "color": "#ffffff", "opacity": 0.35, "lineHeight": 1.4, "letterSpacing": 6, "maxWidth": 0.8 }
   ]
 }

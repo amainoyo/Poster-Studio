@@ -1,12 +1,12 @@
 {
   "name": "活动竖版",
   "size": "1080x1920",
-  "colors": { "c1": "#140518", "c2": "#2b0a33", "c3": "#8e2bbf", "c4": "#ff6fd8", "c5": "#180720" },
-  "shader": { "scale": 0.9, "grain": 0.016, "bloom": 0.7, "lightCore": 0.8, "lightHalo": 0.6 },
+  "colors": { "c1": "#0d0616", "c2": "#24083a", "c3": "#7a2bc9", "c4": "#ff5fb0", "c5": "#0a0512" },
+  "shader": { "scale": 0.85, "offsetX": 0, "offsetY": 0.25, "grain": 0.015, "bloom": 0.42, "vignette": 0.62, "lightCore": 0.12, "lightHalo": 0.32, "speed": 1, "paused": false },
   "layers": [
-    { "id": "badge1", "kind": "badge", "text": "立即报名", "size": 26, "weight": 700, "align": "center", "x": 0.5, "y": 0.14, "width": 0.3, "opacity": 1, "color": "#ff6fd8", "textColor": "#14051a", "lineHeight": 1.4, "letterSpacing": 2, "maxWidth": 0.8 },
-    { "id": "title", "text": "活动主标题", "size": 120, "weight": 800, "align": "center", "x": 0.5, "y": 0.34, "color": "#ffffff", "lineHeight": 1.15, "letterSpacing": 4, "maxWidth": 0.84 },
-    { "id": "subtitle", "text": "时间 · 地点 · 主办方", "size": 34, "weight": 400, "align": "center", "x": 0.5, "y": 0.47, "color": "#f3d0ffcc", "lineHeight": 1.6, "letterSpacing": 2, "maxWidth": 0.8 },
-    { "id": "footer", "text": "扫码或搜索参与活动", "size": 26, "weight": 400, "align": "center", "x": 0.5, "y": 0.88, "color": "#ffffff88", "lineHeight": 1.4, "letterSpacing": 0, "maxWidth": 0.8 }
+    { "id": "badge1", "kind": "badge", "text": "立即报名", "size": 26, "weight": 700, "align": "center", "x": 0.5, "y": 0.19, "width": 0.32, "opacity": 1, "color": "#ff5fb0", "textColor": "#12051a", "lineHeight": 1.4, "letterSpacing": 4, "maxWidth": 0.8 },
+    { "id": "title", "kind": "text", "text": "创作峰会 2026", "size": 128, "weight": 800, "align": "center", "x": 0.5, "y": 0.44, "color": "#ffffff", "shadow": 0.3, "lineHeight": 1.18, "letterSpacing": 4, "maxWidth": 0.82 },
+    { "id": "subtitle", "kind": "text", "text": "11.28 · 深圳 · 现场直播", "size": 38, "weight": 400, "align": "center", "x": 0.5, "y": 0.56, "color": "#f6d6ff", "shadow": 0.45, "lineHeight": 1.6, "letterSpacing": 3, "maxWidth": 0.82 },
+    { "id": "footer", "kind": "text", "text": "扫码报名 · 席位有限", "size": 26, "weight": 400, "align": "center", "x": 0.5, "y": 0.83, "color": "#ffffff", "opacity": 0.6, "lineHeight": 1.4, "letterSpacing": 2, "maxWidth": 0.8 }
   ]
 }

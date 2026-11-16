@@ -15,22 +15,26 @@ DeepSeek Harness 桌面版插件：浮动海报设计面板（可拖动 / 缩放
 
 ### 功能一览
 
-- **画布**：5 个预设尺寸（1080×1350 / 1080×1920 / 1920×1080 / 1080×1080 / 1200×628）+ 自定义 WxH（200–4000）；「全部尺寸」网格模式带虚线适配预览
-- **图层**：文字 / 图片 / 二维码 / 角标四类；锁定、拖拽对齐吸附（画布中线 / 三分线 / 其他图层边缘，容差 6px）
-- **文字**：字号 8–2000，字重 100–900 全连续（中文自动挂思源黑体可变字体），6 款在线中文字体（fonts.loli.net，离线回退系统字体），描边 / 阴影（平方根响应曲线，低档灵敏）
+- **画布**：5 个预设尺寸（1080×1350 / 1080×1920 / 1920×1080 / 1080×1080 / 1200×628）+ 自定义 WxH（200–4000）；「全部尺寸」网格模式带虚线适配预览；同一套文案可**按尺寸独立微调**位置与字号，各尺寸互不影响
+- **图层**：文字 / 图片 / 二维码 / 角标四类；锁定、拖拽对齐吸附（画布中线 / 三分线 / 其他图层边缘，容差 6px）；旋转（−180°~180°）、水平 / 垂直翻转
+- **文字**：字号 8–2000，字重 100–900 全连续（中文自动挂思源黑体可变字体），6 款在线中文字体（fonts.loli.net，离线回退系统字体），描边 / 阴影（平方根响应曲线，低档灵敏）；**渐变填充**（双色上下渐变）、**彩色辉光**、**竖排文字**
 - **背景**：着色器 5 色槽 + 调校参数；背景图上传（自动压缩 jpeg ≤2400px，cover 铺满 + 透明度）；内置配色方案库 6 套 + 自定义保存
-- **工作流**：💾 命名版本快照（🕘 面板：缩略图列表、一键回滚、删除——本体与索引同清）；AI 文案 / 批量变体；导入 / 导出 JSON 模板（图片全部内嵌，跨机可用）
-- **导出**：面板「导出 PNG」弹系统另存为；同时自动回流一份到宿主 `exports/`，供 `poster_export` 工具在会话里直接交付
+- **工作流**：💾 命名版本快照（🕘 面板：缩略图列表、一键回滚、删除——本体与索引同清），可 📌 **钉住**版本 / 条目豁免滚动淘汰、重启仍保留；AI 文案 / 批量变体；导入 / 导出 JSON 模板（图片全部内嵌，跨机可用）；记住上次所在标签页；双击画布文字直达该图层卡片
+- **官方模板库**：5 款一键套用再改——科技横幅 / 活动竖版 / 节庆红金 / 极简黑白 / 发布会横幅（整版替换配色、着色器与排版）
+- **导出**：面板「导出图片」支持 **PNG / JPG / WebP**（后两者可调质量），弹系统另存为；同时自动回流一份到宿主 `exports/`，供 `poster_export` 工具在会话里直接交付
+- **AI 工具**：`poster_design`（自然语言改设计）、`poster_export`（交付最近导出）、`poster_preview`（把当前画布渲染成图片交给视觉模型**亲眼自检、迭代调稿**）
 
 ### 自然语言用法（任意会话）
 
-面板由宿主侧 `poster_design` / `poster_export` 两个工具驱动，描述含中英触发词，中文会话直接说即可：
+面板由宿主侧 `poster_design` / `poster_export` / `poster_preview` 三个工具驱动，描述含中英触发词，中文会话直接说即可：
 
 - 「把海报换成青绿色调」→ poster_design 改 colors
 - 「海报背景换成 D:\某图.jpg」（≤4MB）→ background.image 支持本地路径，宿主自动内嵌
 - 「给海报加一个金色 2027 大字层」→ layers 参数增改任意图层（增量：未提及的层不受影响）
 - 「不要副标题了」「把二维码删掉」→ remove: ["subtitle", "qr1"] 按图层 id 删除；删背景图用 background.image ""
-- 「把海报导出来」→ poster_export 交付最近一次面板导出
+- 「套用科技横幅模板」→ poster_design 设 size/colors/shader/layers（模板可整版替换）
+- 「把海报导出来」→ poster_export 交付最近一次面板导出（PNG / JPG / WebP）
+- 「把海报渲染出来看看」→ poster_preview 把当前画布渲染成 PNG 交给视觉模型，边看边改
 
 ### 安装
 
@@ -90,22 +94,26 @@ A poster-design plugin for [DeepSeek Harness](https://deepseek.com) desktop: a f
 
 ### Highlights
 
-- **Canvas**: 5 presets (1080×1350 / 1080×1920 / 1920×1080 / 1080×1080 / 1200×628) plus custom W×H (200–4000); an all-sizes grid preview with dashed fit guides
-- **Layers**: text / image / QR code / badge; locking and drag-to-snap alignment (centre, thirds, other layers' edges)
-- **Typography**: sizes 8–2000 px, continuous weight axis 100–900 (Chinese auto-binds the Source Han variable font), 6 online Chinese faces, outline & shadow with perceptual response curves
+- **Canvas**: 5 presets (1080×1350 / 1080×1920 / 1920×1080 / 1080×1080 / 1200×628) plus custom W×H (200–4000); an all-sizes grid preview with dashed fit guides; **per-size layout** — tweak a layer's position/size for one canvas size without affecting the others
+- **Layers**: text / image / QR code / badge; locking and drag-to-snap alignment (centre, thirds, other layers' edges); rotation (−180°~180°) and horizontal / vertical flip
+- **Typography**: sizes 8–2000 px, continuous weight axis 100–900 (Chinese auto-binds the Source Han variable font), 6 online Chinese faces, outline & shadow with perceptual response curves, plus **gradient fill** (two-colour), **coloured glow**, and **vertical text**
 - **Backgrounds**: 5-slot shader palette with full tuning, backdrop image upload (auto-compressed, cover-fit, opacity), 6 built-in palettes + save your own
-- **Workflow**: named version snapshots with thumbnails and one-click rollback, AI copywriting & batch variants, JSON template import/export (images embedded, portable across machines)
-- **Export**: system Save-As dialog for PNG, plus an automatic copy returned to the host so the `poster_export` chat tool can deliver it
+- **Workflow**: named version snapshots with thumbnails and one-click rollback; 📌 **pin** a version to exempt it from rolling eviction (survives restarts); AI copywriting & batch variants; JSON template import/export (images embedded, portable); remembers the last active tab; double-click canvas text to focus its layer card
+- **Template pack**: 5 one-click starter templates (tech banner / event vertical / red-gold festival / minimal mono / launch banner) that set colours, shader and layout in one go
+- **Export**: system Save-As for **PNG / JPG / WebP** (the latter two with adjustable quality), plus an automatic copy returned to the host so the `poster_export` chat tool can deliver it
+- **AI tools**: `poster_design` (edit the design in plain language), `poster_export` (deliver the latest export), `poster_preview` (render the live canvas to an image so a vision model can **see it and iterate**)
 
 ### Natural-language control
 
-Two host tools (`poster_design`, `poster_export`) are registered globally; their descriptions carry Chinese and English trigger words. Just say:
+Three host tools (`poster_design`, `poster_export`, `poster_preview`) are registered globally; their descriptions carry Chinese and English trigger words. Just say:
 
 - "Retint the poster to teal tones" / 「把海报换成青绿色调」
 - "Use D:\photo.jpg as the backdrop" (≤4 MB; local paths are inlined automatically)
 - "Add a big golden 2027 headline" (incremental layer patch — other layers untouched)
 - "Remove the subtitle and the QR code" (removal by layer id; `background.image: ""` drops the backdrop)
+- "Apply the tech-banner template" / 「套用科技横幅模板」
 - "Export the poster" / 「把海报导出来」
+- "Render the poster so I can see it" / 「把海报渲染出来看看」(poster_preview hands the live canvas to a vision model to review and refine)
 
 ### Install
 

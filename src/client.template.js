@@ -1237,12 +1237,15 @@ void main(){
         }
         if (layer.kind === 'badge') {
           if (!layer.text) continue;
+          // save first so letterSpacing (which feeds the width measurement)
+          // never leaks into the next layer's state.
+          ctx.save();
+          if ('letterSpacing' in ctx) ctx.letterSpacing = `${layer.letterSpacing ?? 0}px`;
           const padding = layer.size * 0.62;
           const badgeWidth = Math.max(layer.size, measureLine(ctx, layer, layer.text)) + padding * 2;
           const badgeHeight = layer.size * 1.34;
           const badgeLeft = layer.x * width - badgeWidth / 2;
           const badgeTop = layer.y * height - badgeHeight / 2;
-          ctx.save();
           ctx.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1));
           ctx.beginPath();
           ctx.roundRect(badgeLeft, badgeTop, badgeWidth, badgeHeight, badgeHeight / 2);
@@ -2759,6 +2762,38 @@ void main(){
             ]),
             h('div', { key: 'row', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'size', label: store.translate('fontSize'), stretch: true, value: layer.size, min: 12, max: 2000, step: 1, onChange: (value) => patchLayer(layer.id, { size: value }) }),
+            ]),
+            h('div', { key: 'rowStyle', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+              h('label', {
+                key: 'weightWrap',
+                style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', flex: '0 0 auto' },
+              }, [
+                h('span', { key: 'label' }, store.translate('weight')),
+                h('select', {
+                  key: 'select',
+                  value: String(layer.weight ?? 500),
+                  onChange: (event) => patchLayer(layer.id, { weight: Number(event.target.value) }),
+                  style: { width: 52, padding: '3px 2px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'var(--dsw-alias-bg-layer-1, #1f1f25)', color: 'var(--dsw-alias-label-primary, #e8e8ee)', fontSize: 12, outline: 'none' },
+                }, [100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => h('option', { key: weight, value: weight }, String(weight)))),
+              ]),
+              h('button', {
+                key: 'italic',
+                type: 'button',
+                title: store.translate('italic'),
+                onClick: () => patchLayer(layer.id, { italic: !layer.italic }),
+                style: { ...layerToggleStyle(Boolean(layer.italic)), fontStyle: 'italic' },
+              }, 'I'),
+              h(Stepper, {
+                key: 'spacing',
+                label: store.translate('letterSpacing'),
+                stretch: true,
+                value: layer.letterSpacing ?? 0,
+                min: -10,
+                max: 40,
+                step: 0.5,
+                precision: 1,
+                onChange: (value) => patchLayer(layer.id, { letterSpacing: value }),
+              }),
             ]),
             h('div', { key: 'pos', style: { display: 'flex', gap: 10 } }, [
               h(Stepper, { key: 'x', label: 'X%', stretch: true, value: layer.x, min: 0, max: 1, step: 0.01, scale: 100, precision: 0, onChange: (value) => patchLayer(layer.id, { x: value }) }),

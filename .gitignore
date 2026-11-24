@@ -4,3 +4,6 @@ client.js
 node_modules/
 
 backdrops/
+
+# 发布临时目录（npm pack tgz、Release 配图、notes）
+temp/

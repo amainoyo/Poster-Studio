@@ -3995,6 +3995,11 @@ void main(){
             h('option', { key: 'all', value: 'all' }, store.translate('allSizes')),
           ]),
           h('span', { key: 'dims', style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)' } }, `${preset.width}×${preset.height}`),
+          h('span', {
+            key: 'status',
+            title: status,
+            style: { flex: '1 1 auto', minWidth: 0, margin: '0 4px', fontSize: 11, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+          }, status),
           h('button', {
             key: 'fullscreen',
             type: 'button',
@@ -4002,7 +4007,7 @@ void main(){
             'aria-label': fullscreen ? store.translate('restore') : store.translate('fullscreen'),
             onClick: () => setFullscreen(!fullscreen),
             style: {
-              marginLeft: embedded ? 'auto' : 0,
+              marginLeft: 0,
               width: 26,
               height: 26,
               borderRadius: 7,
@@ -4020,7 +4025,7 @@ void main(){
             'aria-label': store.translate('close'),
             onClick: () => { store.open = false; store.emit(); },
             style: {
-              marginLeft: 'auto',
+              marginLeft: 0,
               width: 26,
               height: 26,
               borderRadius: 7,
@@ -4247,10 +4252,6 @@ void main(){
             onClick: () => store.applySpec(defaultSpec()),
             style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1, #34343c)', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #9a9aa6)', fontSize: 12, cursor: 'pointer' },
           }, store.translate('reset')),
-          h('span', {
-            key: 'status',
-            style: { marginLeft: 'auto', fontSize: 10, color: 'var(--dsw-alias-label-secondary, #9a9aa6)', maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-          }, status),
         ]),
         fullscreen || embedded ? null : h('div', { key: 'rez', style: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 } }, [
           h('div', { key: 'e', onMouseDown: (event) => startResize(event, 'e'), style: { position: 'absolute', right: 0, top: 8, bottom: 8, width: 6, cursor: 'ew-resize', pointerEvents: 'auto' } }),

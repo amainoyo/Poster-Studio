@@ -2973,7 +2973,10 @@ void main(){
         const layers = spec.layers.slice();
         const moved = layers.splice(index, 1)[0];
         layers.splice(target, 0, moved);
-        store.applySpec({ layers });
+        // Reorder needs whole-set replace: mergeSpec merges layers by id in place
+        // (keeps their old position), so a reordered array would be silently lost
+        // without replace:true.
+        store.applySpec({ layers, replace: true });
       };
 
       const layerMoveButtons = (layer, index) => [
